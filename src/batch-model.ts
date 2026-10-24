@@ -20,6 +20,7 @@ export function chooseFormat(media:Media,mode:Mode,quality:string):Format|undefi
   return choices.find(f=>{const height=Number(f.label.match(/^(\d+)p/)?.[1]);return height>0&&height<=Number(quality);});
 }
 export function itemBar(value:number,total:number):string{const n=total?Math.round(20*value/total):0;return `[${'#'.repeat(n)}${'-'.repeat(20-n)}] ${value}/${total} itens finalizados`;}
-export const isTerminal=(state:string)=>['ready','browser','error','cancelled'].includes(state);
-export function nextWork<T extends {state:string;job?:unknown}>(items:T[],paused:boolean):T|undefined{return items.find(x=>!isTerminal(x.state)&&(!paused||!!x.job));}
+export const isTerminal=(state:string)=>['ready','browser','sent','archived','error','cancelled'].includes(state);
+export function needsMonitoring(item:{state:string;job?:{state:string}}):boolean{return !isTerminal(item.state)||(item.state==='browser'&&item.job?.state==='ready');}
+export function nextWork<T extends {state:string;job?:{state:string}}>(items:T[],paused:boolean):T|undefined{return items.find(x=>!isTerminal(x.state)&&(!paused||!!x.job))||items.find(x=>x.state==='browser'&&x.job?.state==='ready');}
 export function movePending<T extends {state:string}>(items:T[],index:number,delta:number):boolean{const other=index+delta;if(items[index]?.state!=='waiting'||items[other]?.state!=='waiting')return false;[items[index],items[other]]=[items[other],items[index]];return true;}

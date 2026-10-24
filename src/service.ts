@@ -31,7 +31,7 @@ export async function analyze(url:string,signal:AbortSignal):Promise<Analysis>{
   if(typeof data.id!=='string'||!Array.isArray(data.items)||!data.items.length||data.items.some(item=>typeof item.id!=='string'||typeof item.title!=='string'||!Array.isArray(item.formats)||item.formats.some(f=>typeof f.id!=='string'||!['video','audio'].includes(f.mode)||typeof f.label!=='string')))throw new ServiceError('O motor retornou opções inválidas. Tente analisar novamente.');
   return data;
 }
-export async function getJob(id:string):Promise<Job>{const data=await request<Job>(`/jobs/${encodeURIComponent(id)}`);if(!['preparing','downloading','processing','packing','ready','error','cancelled'].includes(data.state))throw new ServiceError('Estado de trabalho inválido.');return data;}
+export async function getJob(id:string):Promise<Job>{const data=await request<Job>(`/jobs/${encodeURIComponent(id)}`);if(!['preparing','downloading','processing','packing','ready','sent','archived','error','cancelled'].includes(data.state))throw new ServiceError('Estado de trabalho inválido.');return data;}
 export function validateURL(value:string):string{
   if(!value.trim())throw new Error('Cole o link da mídia para começar.');
   let url:URL;try{url=new URL(value.trim());}catch{throw new Error('Link inválido. Inclua https:// e confira o endereço.');}

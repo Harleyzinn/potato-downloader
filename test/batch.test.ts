@@ -28,6 +28,6 @@ test('queue continues beyond failure/cancellation, pause monitors accepted jobs,
   const list=[{state:'error',id:1},{state:'cancelled',id:2},{state:'waiting',id:3},{state:'waiting',id:4}];
   assert.equal(nextWork(list,false)?.id,3);assert.equal(nextWork(list,true),undefined);
   assert.equal(movePending(list,2,1),true);assert.equal(nextWork(list,false)?.id,4);assert.equal(movePending(list,2,-1),false);
-  assert.equal(nextWork([{state:'downloading',job:{id:'accepted'}}],true)?.state,'downloading');
+  assert.equal(nextWork([{state:'downloading',job:{state:'downloading'}}],true)?.state,'downloading');
   assert.equal(nextWork([{state:'ready'},{state:'browser'}],false),undefined);
 });

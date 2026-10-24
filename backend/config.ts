@@ -4,7 +4,9 @@ export const config={
   port:Number(process.env.PORT||8787),host:process.env.HOST||'127.0.0.1',
   origins:(process.env.ALLOWED_ORIGINS||'https://harleyzinn.github.io,http://127.0.0.1:5173,http://localhost:5173').split(',').map(x=>x.trim()),
   tempRoot:process.env.TEMP_ROOT || join(tmpdir(),'potato-downloader'),
-  maxBytes:100*1024*1024,maxDisk:512*1024*1024,maxDuration:1200,maxConcurrent:2,ttl:15*60*1000,
+  maxConcurrent:2,ttl:15*60*1000,
+  idleMs:Math.max(1000,Number(process.env.WORKER_IDLE_MS)||10*60*1000),
+  streamIdleMs:Math.max(1000,Number(process.env.STREAM_IDLE_MS)||5*60*1000),
   temporary:process.env.TEMPORARY_HOST==='1',
-  maxBatch:20,playlistPage:25,maxPlaylist:200,maxZip:200*1024*1024,maxTraffic:512*1024*1024,
+  maxBatch:20,playlistPage:25,maxPlaylist:200,
 };

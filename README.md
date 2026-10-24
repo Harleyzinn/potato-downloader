@@ -81,7 +81,7 @@ O backend e o túnel foram deixados em execução na primeira entrega. Não depe
 docker compose up -d --build
 ```
 
-O Compose vincula a API apenas a `127.0.0.1:8787`, limita memória/CPU/processos e usa `/tmp` em memória com limite de 512 MiB. Os arquivos de até 100 MiB são preparados ali. Configure seu proxy HTTPS ou túnel nomeado para encaminhar ao backend. Use um serviço já disponível; o projeto não cria contas, assinaturas ou infraestrutura cobrada.
+O Compose vincula a API apenas a `127.0.0.1:8787`, limita memória/CPU/processos e usa um volume em disco em `/work`, sem quota de bytes configurada pelo projeto. A capacidade física e cotas do host continuam aplicáveis. Configure seu proxy HTTPS ou túnel nomeado para encaminhar ao backend. Use um serviço já disponível; o projeto não cria contas, assinaturas ou infraestrutura cobrada.
 
 Na hospedagem, use a imagem do `Dockerfile`, mantenha `HOST=0.0.0.0` dentro do contêiner e configure `ALLOWED_ORIGINS`. O backend não serve o frontend. O Dockerfile é fornecido para instalação reproduzível; sua execução em Linux/Docker não foi verificada neste computador sem Docker.
 
@@ -123,7 +123,7 @@ O backend permite a origem exata `https://harleyzinn.github.io` (a origem não i
 - Playlists e galerias quando o extrator retorna entradas públicas: listagem em páginas de 25, até 200 itens; fila de até 20 itens. Nem toda galeria de fotos de Instagram/TikTok é suportada.
 - Progresso real do download **para o servidor** quando o motor informa bytes totais; indicador indeterminado nos demais casos. Em streams separados o percentual pode reiniciar para a segunda faixa. Conversão não tem percentual fictício.
 - Após preparação, streaming com `Content-Disposition` e nome sanitizado. Ao clicar, mostra **Download iniciado**; não alega que o arquivo foi salvo.
-- 100 MiB por trabalho, 20 minutos por mídia, 2 processos simultâneos, 90 s de análise e 8 min de preparação, retenção de até 15 min. Conversão pode ultrapassar tamanho e ser cancelada.
+- Sem limite de tamanho imposto pela aplicação e sem corte por duração da mídia. Dois processos simultâneos; análise de metadados em requisições de até 90 s. Preparação/ZIP sem prazo total, com detecção de inatividade. Arquivos prontos têm 15 minutos para iniciar; operações ativas não expiram por duração.
 - Preferências locais, restauração de padrões, movimento reduzido e navegação por teclado. Histórico desativado por padrão; persistência opcional de rascunhos de lote.
 
 ### Cobertura ampliada (v2.1)
@@ -180,7 +180,7 @@ Nenhuma API pública do Cobalt foi usada e nenhuma nova alegação de plataforma
 - Somente HTTP/HTTPS, sem credenciais em URLs, IPs literais, redes locais ou portas especiais na entrada. A descoberta ampla de domínios continua subordinada à barreira de rede; um hostname arbitrário não autoriza acesso a uma rede interna.
 - Todo tráfego do yt-dlp usa proxy privado em loopback que valida DNS de cada destino, rejeita IPs privados/reservados/mapeados e fixa o IP público no socket. Cada redirecionamento passa pela mesma verificação, reduzindo SSRF e rebinding. A leitura limitada de cabeçalho usa a mesma validação e pinagem, com até cinco redirecionamentos, timeout e limite de bytes próprios. FFmpeg não recebe URLs na inspeção de cabeçalhos.
 - Execução com argumentos, sem shell e sem argumentos fornecidos pelo cliente. Apenas IDs de formatos previamente analisados; caminhos locais controlados pelo servidor.
-- Limites de corpo, processos, saída JSON, tempo e arquivos. Reserva de espaço antes de preparar trabalhos (512 MiB no total), até quatro streams e dois por arquivo. Watchdog de tamanho em disco e limpeza periódica/cancelamento. Arquivos não são carregados inteiros na memória do navegador.
+- Limites de corpo JSON, processos e saída de metadados, até quatro streams e dois por arquivo. Sem quota de tamanho/tráfego de mídia. Watchdog de inatividade, tratamento de ENOSPC/EDQUOT e limpeza periódica/cancelamento. Arquivos não são carregados inteiros na memória do navegador.
 - Análises e trabalhos são isolados por sessão protegida. Links de arquivos têm capacidades aleatórias temporárias; não os compartilhe se quiser manter privacidade. O token da sessão pode ficar em sessionStorage; URLs só são persistidas na opção explícita de rascunho.
 - O limitador é por IP da conexão; por um túnel todos podem compartilhar o limite. Para maior escala, implemente uma política na borda e isolamento de rede/contêiner; CORS não substitui autenticação nem controle de abuso.
 - Não registra URLs, títulos ou erros brutos do extrator. Metadados ficam em memória até expirar e arquivos temporários no servidor até 15 min. A limpeza periódica também remove diretórios órfãos expirados após reiniciar o motor; arquivos bloqueados são tentados novamente no próximo ciclo. O Compose usa tmpfs.
@@ -201,7 +201,7 @@ Verificação da primeira publicação: workflow de checks e deploy concluído c
 
 ### Hospedagem, tráfego e políticas
 
-O frontend no Pages é estático. Extração, inspeção e conversão executam neste computador com Node/yt-dlp/FFmpeg. Cada análise tem 90 s; preparação, 8 min; download final usa streaming, sem mantê-lo inteiro no navegador. São dois processos e quatro transferências simultâneas; as faixas originais de vídeo e áudio e a conversão podem aumentar o tráfego em relação ao arquivo final. O projeto não inclui tráfego ilimitado nem provisiona hospedagem paga.
+O frontend no Pages é estático. Extração, inspeção e conversão executam neste computador com Node/yt-dlp/FFmpeg. Cada requisição de metadados tem 90 s para caber no transporte HTTP; preparação, conversão e ZIP não têm duração total máxima. O download final usa streaming com backpressure e HTTP Range, sem manter o arquivo inteiro no navegador. São dois processos e quatro transferências simultâneas; as faixas originais de vídeo e áudio e a conversão podem aumentar o tráfego em relação ao arquivo final. O projeto não inclui tráfego ilimitado nem provisiona hospedagem paga.
 
 O [Quick Tunnel da Cloudflare](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) é temporário, sem garantia de uptime, até 200 requisições em voo, sem SSE e com hostname diferente a cada inicialização. O Potato usa polling curto, não SSE; seus próprios limites são mais baixos. O túnel não é hospedagem permanente ou um compromisso de aceitação de qualquer conteúdo. Aplicam-se os [termos do serviço](https://www.cloudflare.com/website-terms/), incluindo restrições de abuso e acesso não autorizado. Para serviço contínuo e tráfego de mídia, instale o backend em hospedagem compatível com processos nativos e com a política aplicável ao seu uso. Nenhum plano novo ou cobrança foi criado nesta entrega.
 
@@ -227,7 +227,7 @@ Revise o resumo, adicione até 20 itens e clique **Iniciar / retomar fila**. A o
 
 Barras individuais medem a **faixa de origem recebida pelo servidor**, com bytes, velocidade e ETA de `--progress-template`. Sem total confiável, ficam indeterminadas. Faixas separadas podem reiniciar a barra. Conversão/combinação e ZIP têm estados próprios; não reutilizam o percentual de transferência. A barra geral é de **itens finalizados** (prontos, falhas e cancelados), com contadores separados. **Pronto para baixar** confirma o arquivo no servidor; **Download iniciado no navegador** não confirma gravação no dispositivo.
 
-Arquivos individuais são transmitidos por streaming. ZIP é criado com Archiver 8 no servidor usando arquivos temporários, sem carregar a mídia inteira no navegador. O método STORE empacota sem recompressão. A compactação mostra entradas processadas quando disponíveis, sem inventar percentual de bytes. Nomes são sanitizados e diretórios exclusivos; numeração original é opcional nos arquivos individuais e entradas de ZIP têm prefixos únicos. O pacote usa até 20 arquivos prontos e 200 MiB de origens, exigindo espaço para fontes e ZIP. **Limpar finalizados e arquivos** solicita remoção no servidor; sem conexão, a expiração continua valendo.
+Arquivos individuais são transmitidos por streaming. ZIP é criado com Archiver 8 no servidor usando arquivos temporários, sem carregar a mídia inteira no navegador. O método STORE empacota sem recompressão. A compactação mostra entradas processadas quando disponíveis, sem inventar percentual de bytes. Nomes são sanitizados e diretórios exclusivos; numeração original é opcional nos arquivos individuais e entradas de ZIP têm prefixos únicos. O pacote usa até 20 arquivos prontos, sem limite de bytes da aplicação, exigindo espaço físico para fontes e ZIP. Os originais são removidos após o pacote ficar pronto. **Limpar finalizados e arquivos** solicita remoção no servidor; sem conexão, a expiração continua valendo.
 
 ### Sessão, fechamento e privacidade
 
@@ -245,14 +245,14 @@ Histórico e links não são persistidos por padrão. A opção explícita de sa
 | Playlist | 25 itens por consulta, até 200 listados |
 | Prévia | 10 cartões por página |
 | Concorrência | 1 trabalho da fila por página; 2 operações globais no backend |
-| Mídia | 100 MiB finais, 20 minutos; 8 minutos de processamento |
+| Mídia | Sem cota de bytes ou duração máxima da mídia imposta pela aplicação |
 | Listagem / análise | 90 segundos por pedido |
-| ZIP | 20 arquivos; 200 MiB de origens; 60 segundos |
-| Disco temporário | 512 MiB compartilhados, verificados antes e durante trabalhos |
+| ZIP | 20 arquivos por operação, sem cota de bytes ou duração total; ZIP64 habilitado |
+| Disco temporário | Volume do host; sem quota do projeto, sujeito ao espaço e cotas reais |
 | Rede | 5 MiB/s por yt-dlp; 4 transferências globais e 2 por arquivo |
-| Tráfego entregue | 512 MiB por sessão; contagem conservadora de arquivos solicitados |
+| Tráfego entregue | Sem cota de bytes por sessão na aplicação; provedor/rede podem restringir |
 | Pedidos | 150 POSTs por 10 minutos por endereço observado pelo servidor |
-| Disponibilidade | 15 minutos após preparo; coleta a cada 30 segundos; sessão de 1 hora de inatividade |
+| Disponibilidade | 15 minutos para iniciar; operações ativas preservadas. Remoção após envio completo ou incorporação ao ZIP; coleta a cada 30 s |
 
 O túnel temporário continua sendo transporte para este computador, sujeito às limitações documentadas acima. Não houve contratação paga. O Pages serve apenas o frontend. Todas as extrações continuam pelo proxy privado com validação e fixação de DNS a cada conexão/redirecionamento. O inventário público e a política de exemplos de fontes permanecem iguais.
 
@@ -269,3 +269,54 @@ Testes isolados cobrem intervalos, deduplicação sem apagar queries, preferênc
 Verificações reais adicionais da v3.0: criações concorrentes com a mesma chave resultaram em um trabalho e rejeição da concorrente; cancelamento ativo confirmado; recuperação do trabalho pela mesma sessão; bloqueios de CORS, URL interna, página acima do limite e ZIP com 21 entradas. Na UI, links repetidos foram ignorados, um arquivo HTTP 404 ficou desabilitado sem impedir os demais e pausar manteve o próximo item aguardando enquanto o aceito terminou.
 
 Também foi verificada uma interrupção real do acesso ao proxy de desenvolvimento durante a transferência do trecho aberto do Wikimedia Commons (1080p OGV, 31,1 MiB). A UI exibiu o aviso de acompanhamento sem conexão e, após restabelecer o acesso e recuperar a sessão, encontrou o mesmo trabalho pronto, sem novo download. O total ficou em três trabalhos, sem duplicação. O fluxo individual MP4 e o ZIP da fila foram baixados pelo navegador. Layout de 390 px sem rolagem horizontal e navegação por Tab também foram conferidos. Uma nova tentativa de análise do Big Buck Bunny completo no YouTube retornou restrição nesta rede; isso não invalida a listagem pública, mas reforça que a disponibilidade de cada item precisa ser conferida.
+
+
+## Arquivos grandes — Streaming Edition (v3.1)
+
+**Sem limite de tamanho imposto pela aplicação.** Isso significa que foram removidos filtros de tamanho/duração dos formatos, `--max-filesize`, verificações de 100 MiB, soma máxima de ZIP, quota de disco do projeto e quota de tráfego por sessão. Tamanho desconhecido não é motivo de recusa. Não significa downloads ilimitados: espaço real, sistema de arquivos, RAM/CPU do host, proxy, origem e contrato do provedor ainda limitam o serviço.
+
+Mantemos limites independentes do tamanho: concorrência, quantidade de itens por operação/listagem, frequência de pedidos, corpo JSON, metadados, rede pública validada e isolamento de sessão. As leituras limitadas a 4 MiB servem somente para inspeção de codecs, não são o limite do download. Alguns arquivos sem metadados legíveis no cabeçalho continuam exigindo uma origem que forneça os codecs; uma recusa nesse caso é de identificação de formato, não de tamanho desconhecido.
+
+### Duração, progresso e limpeza
+
+- Preparação, transferência para o servidor, conversão e ZIP não têm mais cortes fixos de 8 minutos/60 segundos nem duração máxima de mídia. Trabalhos ativos não são apagados ao atingir 15 minutos. Essa janela é de inatividade de arquivos **já prontos**, não de duração das operações. Acesso autenticado e processamento/transferências da mesma sessão preservam as cópias prontas do lote, evitando que os primeiros itens expirem enquanto os últimos arquivos grandes ainda estão sendo preparados.
+- `WORKER_IDLE_MS` (padrão 600000) detecta ausência de avanço nos bytes e nos arquivos temporários. É uma heurística de inatividade, não um limite de duração total: para transformações que passam muito tempo em CPU sem escrever, ajuste ao host. `STREAM_IDLE_MS` (300000) encerra conexões de saída inativas, sem cortar transferências que continuam progredindo. Timeouts de sockets da origem e de requisições de metadados permanecem.
+- Progresso determinado só é exibido quando o total real está disponível. Com total desconhecido, são exibidos bytes recebidos e indicador indeterminado. Percentual da transferência não representa conversão ou gravação no dispositivo. Logs de progresso são consumidos linha a linha, sem acumular stdout proporcional à duração do download.
+- yt-dlp/FFmpeg escrevem em disco; envio e ZIP usam streams com backpressure. ZIP64 está habilitado; não é criado um Buffer com a mídia inteira. Memória de bibliotecas/codecs e armazenamento continuam sendo recursos finitos.
+- Intermediários são limpos ao preparar o arquivo. Após envio completo de um arquivo pelo servidor, sua cópia temporária é removida e o estado indica **envio encerrado**, sem afirmar gravação no dispositivo. Intervalos HTTP parciais e conexões interrompidas preservam a cópia para retomada até expirar. HTTP Range aceita um intervalo por pedido; a efetiva retomada depende do cliente e de o arquivo ainda estar disponível.
+- Um ZIP pronto substitui suas cópias individuais temporárias: elas são removidas para liberar espaço. Para outra cópia individual, analise/prepare novamente. O ZIP pronto é recuperável pela sessão e também é removido após envio completo. Cancelamento/falha remove saídas incompletas; arquivos bloqueados são tentados novamente pela limpeza periódica. Falhas de espaço/cota externa usam mensagens próprias, sem encerrar o processo da API.
+
+### Instalação para arquivos grandes e alternativa ao túnel
+
+No Windows, o backend atual usa diretório em disco do sistema (`TEMP_ROOT` pode apontar para outro volume). Reserve espaço físico para entradas, conversões e ZIP; durante a montagem pode ser necessário manter fontes e saída ao mesmo tempo. Não use uma pasta de outro aplicativo. Não configure o diretório de trabalho em RAM.
+
+O `compose.yaml` agora usa o volume em disco `potato-work:/work`, com `TEMP_ROOT` e `TMPDIR` em `/work`. Foi removido o antigo tmpfs de 512 MiB. Limites de memória/CPU/processos permanecem. Não há `storage_opt.size` ou quota de arquivo configurada; o disco/cotas do host são a fronteira real. Instalações existentes devem ser recriadas para adotar o volume; não basta reiniciar o contêiner antigo.
+
+Para servidor próprio com domínio existente e portas 80/443 disponíveis, foi preparada a alternativa Caddy com HTTPS direto:
+
+```sh
+# Configure um domínio que você já controla, apontando para seu servidor.
+export API_DOMAIN=api.seu-dominio-existente.com
+docker compose -f compose.yaml -f compose.caddy.yaml up -d --build
+```
+
+Use DNS direto ao servidor; se mantiver uma CDN/proxy na frente, suas restrições continuam valendo. A configuração não habilita buffers do corpo de resposta ou prazo total de download. Há timeouts de inatividade e 100 s para cabeçalhos de resposta (metadados têm 90 s). Logs de requisições HTTP que poderiam revelar URLs/capacidades não são habilitados. Essa alternativa é fornecida como configuração; não cria servidor, domínio, conta ou assinatura. A sintaxe do Caddyfile foi validada com o binário oficial (`caddy adapt`), sem iniciar serviços. A composição Docker não foi executada neste computador Windows sem Docker. Depois de instalar, configure a variável pública `VITE_API_URL` com o HTTPS da API e publique o frontend pelo workflow existente. Nunca coloque credenciais nessa variável.
+
+### Restrições externas verificadas na documentação
+
+- [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits): frontend estático, site até 1 GB e banda mensal flexível de 100 GB. As mídias são servidas pela API, não são gravadas no repositório nem no Pages; esses números não são um limite de mídia aplicado pelo Potato.
+- [Cloudflare Quick Tunnel](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/): transporte temporário de testes, sem garantia de disponibilidade, até 200 pedidos em voo, sem SSE, hostname variável. Computador/túnel precisam ficar ligados. Políticas e restrições do provedor continuam aplicáveis.
+- [Conexões Cloudflare](https://developers.cloudflare.com/fundamentals/reference/connection-limits/): timeouts de conexão/leitura/escrita são externos. Um timeout de proxy pode interromper uma transferência; não é equivalente a uma quota de tamanho. O projeto não pode alterar limites de plano do provedor. Polling curto mantém o processamento fora de uma única requisição longa.
+- [Volumes Docker](https://docs.docker.com/engine/storage/volumes/) usam armazenamento do host; [tmpfs](https://docs.docker.com/engine/storage/tmpfs/) usa memória, razão da troca. Consulte também a [configuração oficial do Caddy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy), [streams Node 24](https://nodejs.org/docs/latest-v24.x/api/stream.html) e [Archiver/ZIP64](https://www.archiverjs.com/docs/archiver/).
+
+Nenhuma hospedagem paga foi contratada ou provisionada. O túnel existente continua ativo para esta instalação; a alternativa está pronta para configuração em infraestrutura que você já possua.
+
+
+### Testes reais da v3.1 (24/10/2026)
+
+- Fonte pública de teste [Big Buck Bunny HLS, hospedado pela Mux para hls.js](https://test-streams.mux.dev/), variante 1080p, sem tamanho total informado na extração/transferência. O arquivo final teve **488.204.087 bytes** (~466 MiB), ultrapassando o antigo limite individual. Foram observados bytes crescendo com total desconhecido, sem percentual inventado.
+- ZIP64 resultante com **488.204.307 bytes**, acima da antiga cota de ZIP, preparado localmente e em outra execução pela API HTTPS atual em `trycloudflare.com`. Os dois ZIPs foram baixados por streaming para disco e passaram no CRC de `zipfile.testzip()`. O teste HTTPS levou 141 segundos entre criação do trabalho e entrega. Isso é evidência desse tamanho nesta instalação, não uma promessa de aceitação de qualquer tamanho pelo provedor.
+- Foram conferidos Range parcial acima do byte 104.857.600, intervalo inválido (`416`), HEAD, envio individual completo, remoção após envio, limpeza dos originais ao montar ZIP, recuperação do pacote pela sessão e isolamento contra outra sessão. Durante a transferência grande, uma observação do processo Node mostrou aproximadamente 101 MiB de memória residente; não é um benchmark de pico nem inclui todos os processos de codecs.
+- Testes isolados cobrem duração longa e formatos de 50 GiB sem filtro de tamanho (metadados construídos), faixas para arquivos de 6 GiB, mensagens de falta de espaço/cota externa, continuidade da fila e watchdog baseado em atividade. Não foi preenchido o disco do usuário nem foi realizado um download real maior que 4 GiB. ZIP64 foi habilitado, mas não anunciamos esse volume como efetivamente testado.
+
+![Bytes recebidos com total desconhecido na interface ASCII](docs/unknown-size.png)

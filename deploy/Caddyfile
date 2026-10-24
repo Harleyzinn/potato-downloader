@@ -1,0 +1,19 @@
+{
+	# No access logs or HTTP error request dumps containing media URLs/capabilities.
+	log default {
+		exclude http.log.access http.log.error
+	}
+}
+
+{$API_DOMAIN} {
+	reverse_proxy potato-engine:8787 {
+		# Default streaming/backpressure; do not enable request/response body buffers.
+		transport http {
+			dial_timeout 10s
+			response_header_timeout 100s
+			# Inactivity between reads/writes, not the duration of a download.
+			read_timeout 5m
+			write_timeout 5m
+		}
+	}
+}

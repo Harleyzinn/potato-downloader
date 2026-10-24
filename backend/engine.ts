@@ -13,9 +13,8 @@ export function mediaOptions(raw:RawMedia,id:string):Media {
   if(raw.is_live)throw new Error('Transmissões ao vivo não são suportadas.');
   if(raw.has_drm)throw new Error('DRM');
   if(['private','premium_only','subscriber_only','needs_auth'].includes(raw.availability||''))throw new Error('private or restricted media');
-  if((raw.duration||0)>1200)throw new Error('O limite desta instância é de 20 minutos por mídia.');
   const formats:Format[]=[];
-  const available=(raw.formats || [raw]).filter(f=>!f.has_drm && ['http','https','m3u8_native','http_dash_segments'].includes(f.protocol||'https') && /^[\w.-]+$/.test(f.format_id||'') && (f.filesize||f.filesize_approx||0)<=100*1024*1024);
+  const available=(raw.formats || [raw]).filter(f=>!f.has_drm && ['http','https','m3u8_native','http_dash_segments'].includes(f.protocol||'https') && /^[\w.-]+$/.test(f.format_id||''));
   const audio=available.filter(f=>f.acodec && f.acodec!=='none' && f.vcodec==='none');
   for(const f of available) {
     const size=f.filesize || f.filesize_approx;
@@ -31,6 +30,11 @@ export function mediaOptions(raw:RawMedia,id:string):Media {
   return {id,title:String(raw.title || 'Potato Dumper').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,source:String(raw.extractor_key||raw.extractor||'generic').slice(0,100),identity:raw.id?`${raw.extractor_key||raw.extractor||'generic'}:${raw.id}`:undefined,formats:formats.reverse().slice(0,100)};
 }
 export function publicError(text:string):string {
+  if(/ENOSPC|no space left|disk full|not enough space|EDQUOT|disk quota/i.test(text))return 'O armazenamento do backend ficou sem espaço ou atingiu uma cota externa. Libere espaço e prepare novamente; os arquivos incompletos serão removidos.';
+  if(/EACCES|EROFS|EIO|permission denied.*(file|output)/i.test(text))return 'Falha de leitura ou escrita no armazenamento do backend. Verifique o disco e as permissões e prepare novamente.';
+  if(/stalled/i.test(text))return 'O processo ficou sem avanço observável e foi encerrado. Verifique a origem, o disco e a configuração de inatividade do backend.';
+  if(/metadata limit/i.test(text))return 'A resposta de metadados excedeu a proteção de memória. Use uma página menor da playlist ou um link individual.';
+  if(/413|too large|size limit|quota|bandwidth.*exceeded/i.test(text))return 'A origem, o proxy ou a hospedagem recusou a transferência por uma restrição externa. A aplicação não impõe limite de tamanho de mídia.';
   if(/Transmissões ao vivo/.test(text))return 'Este motor aceita streams sob demanda (VOD), mas não grava transmissões ao vivo.';
   if(/DRM|encrypted|protected/i.test(text))return 'Mídia protegida ou criptografada sem suporte. Não é possível processá-la nesta instância.';
   if(/private|login|sign in|members.only|age.restrict|403|restricted|not available in your country/i.test(text))return 'Conteúdo privado ou restrito. Use um link público que permita download.';
@@ -40,7 +44,6 @@ export function publicError(text:string):string {
   if(/format.*not available/i.test(text))return 'Este formato não está mais disponível. Analise o link novamente.';
   if(/unsupported url/i.test(text))return 'Este tipo de link ainda não é compatível com o motor.';
   if(/timed out|timeout/i.test(text))return 'Tempo limite atingido. Tente novamente.';
-  if(/size|too large|limite|limit|exceeded/i.test(text))return 'A mídia ultrapassou o limite desta instância (100 MiB / 20 minutos).';
   return 'Não foi possível processar a mídia. Tente outro link público ou novamente mais tarde.';
 }
 export function launch(args:string[],proxy:string,signal:AbortSignal,onLine?:(line:string)=>void):{child:ChildProcess;result:Promise<string>} {
@@ -55,8 +58,8 @@ export function launch(args:string[],proxy:string,signal:AbortSignal,onLine?:(li
     const finish=(error?:Error)=>{if(settled)return;settled=true;signal.removeEventListener('abort',abort);if(error)fail(error);else done(out);};
     signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
     child.stdout?.on('data',chunk=>{
-      const text=chunk.toString();out+=text;
-      if(out.length>8*1024*1024){stop();finish(new Error('size limit'));return;}
+      const text=chunk.toString();if(!onLine)out+=text;
+      if(out.length>8*1024*1024){stop();finish(new Error('metadata limit'));return;}
       if(onLine){pending+=text;const lines=pending.split(/\r?\n/);pending=lines.pop()||'';lines.forEach(onLine);}
     });
     child.stderr?.on('data',chunk=>{err=(err+chunk.toString()).slice(-8000);});

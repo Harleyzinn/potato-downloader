@@ -42,5 +42,14 @@ Data: 24/10/2026, America/Sao_Paulo.
 - DASH VOD (`dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd`): onze opções reais, vídeo 180p e áudio separados baixados e unidos pelo FFmpeg; MP4 de 21.210.203 bytes preparado e transferido.
 - Esses vídeos de teste são Big Buck Bunny, Blender Foundation, CC BY 3.0; o áudio público mantém sua licença na página do Wikimedia Commons. Mídias de teste não estão no repositório.
 - Nove testes automatizados cobrem validação de URLs/IPs, proxy, sondagem limitada de arquivos diretos, catálogo instalado/quebrado, DRM/autenticação, formatos VOD, nomes, mensagens e progresso. Sem mocks no fluxo entregue.
-- Limites existentes permanecem: dois processos, 100 MiB, 20 min, 8 min de preparação, arquivos temporários por 15 min. HLS/DASH ao vivo, DRM e acesso autenticado não foram habilitados.
+- Registro histórico da v2.1: havia dois processos, limite de 100 MiB/20 min e 8 min de preparação, com retenção de 15 min. As cotas de bytes e duração foram removidas na v3.1; consulte a seção atual abaixo. HLS/DASH ao vivo, DRM e acesso autenticado não foram habilitados.
 - A hospedagem continua sendo Pages + backend local por túnel temporário. Foram consultadas as limitações oficiais do Quick Tunnel (sem uptime garantido, 200 requisições em voo, sem SSE) e termos de uso; não há promessa de operação permanente ou autorização universal de conteúdo pelo provedor.
+
+
+## Sem cota de bytes da aplicação — v3.1
+
+Estado atual: sem filtros de tamanho/duração de mídia, sem --max-filesize, sem quota de soma de ZIP, disco ou tráfego por sessão. Concorrência, frequência, SSRF, isolamento de sessão e limites de metadados permanecem. Preparo/ZIP usam watchdog de atividade, sem prazo total; transferências têm timeout de inatividade e suporte GET/HEAD/Range. Arquivos prontos têm janela para iniciar, que não interrompe operação ativa. Saídas incompletas, intermediários, fontes já incorporadas no ZIP e cópias inteiramente enviadas são limpos.
+
+Integrações reais: Big Buck Bunny HLS da Mux (1080p), total desconhecido durante a origem, 488.204.087 bytes finais; ZIP de 488.204.307 bytes. Execuções local e pela URL pública HTTPS do túnel, download completo por streaming, CRC válido. Execução HTTPS: 141 s; SHA-256 do ZIP recebido: 76e6975fde1b1a26ada4fd3c864dfe155b5886dbdda7aa4cdebf6e8d5bf2ff0a. O hash registra o artefato recebido; os metadados de data do ZIP diferem entre execuções.
+
+Também verificados HEAD, Range, 416, remoção pós-envio, fontes arquivadas, recuperação do ZIP pela sessão e bloqueio de outra sessão. Testes isolados simulam metadados de 50 GiB/2 h, faixas de 6 GiB, erros ENOSPC/EDQUOT e inatividade. Não houve teste real >4 GiB, disco cheio ou implantação Docker/Caddy neste host sem Docker; apenas a sintaxe do Caddyfile foi validada com o CLI oficial, sem iniciar serviços. O volume em disco e o HTTPS direto são uma alternativa preparada, não infraestrutura contratada/provisionada. Testes não garantem todos os tamanhos/fontes ou a capacidade máxima da infraestrutura.

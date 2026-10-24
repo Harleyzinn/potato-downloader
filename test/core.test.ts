@@ -59,10 +59,10 @@ test('forward proxy blocks redirect-like requests and CONNECT to private targets
     const text=await new Promise<string>((done,fail)=>{const socket=net.connect(addr.port,'127.0.0.1',()=>socket.write('CONNECT 127.0.0.1:443 HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n'));socket.on('data',data=>{done(data.toString());socket.destroy();});socket.on('error',fail);});assert.match(text,/403/);
   }finally{await new Promise<void>(done=>proxy.close(()=>done()));}
 });
-test('returns only source formats with no DRM and rejects live/overlong media',()=>{
+test('returns only source formats with no DRM and rejects live media while allowing long/large/unknown-size media',()=>{
   const media=mediaOptions({title:'My media',formats:[{format_id:'1',protocol:'https',vcodec:'h264',acodec:'aac',ext:'mp4',height:720,filesize:1000},{format_id:'2',protocol:'https',vcodec:'h264',acodec:'aac',has_drm:true},{format_id:'3',protocol:'rtmp',vcodec:'h264',acodec:'aac'}]},'id');
   assert.equal(media.formats.length,2);assert.ok(media.formats.some(f=>f.id==='v:1'));assert.equal(media.formats[0].estimated,false);
-  assert.throws(()=>mediaOptions({is_live:true},'id'));assert.throws(()=>mediaOptions({duration:1300},'id'));
+  assert.throws(()=>mediaOptions({is_live:true},'id'));assert.equal(mediaOptions({duration:7200,formats:[{format_id:'large',vcodec:'h264',acodec:'aac',filesize:50*1024**3}]},'id').duration,7200);assert.equal(mediaOptions({formats:[{format_id:'unknown',vcodec:'h264',acodec:'aac'}]},'id').formats[0].size,undefined);
 });
 test('sanitizes names without leaking raw errors and distinguishes real progress',()=>{
   assert.equal(sanitizeFilename('../CON/hello\x00','mp4'),'.._CON_hello_.mp4');assert.equal(sanitizeFilename('CON','mp3'),'potato-CON.mp3');

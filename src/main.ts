@@ -15,9 +15,9 @@ document.querySelectorAll('select').forEach(select=>{const shell=document.create
 const input=$<HTMLInputElement>('#media-url');
 const format=$<HTMLSelectElement>('#format'),itemSelect=$<HTMLSelectElement>('#media-item'),conversion=$<HTMLSelectElement>('#conversion');
 function state(label:string,message:string,options:{error?:boolean;progress?:number;working?:boolean}={}){
-  $('#state-label').textContent=label;$('#status').textContent=message;$('#status').classList.toggle('error',Boolean(options.error));
+  if($('#state-label').textContent!==label)$('#state-label').textContent=label;if($('#status').textContent!==message)$('#status').textContent=message;$('#status').classList.toggle('error',Boolean(options.error));
   $('#terminal-art').textContent=terminalIllustration(label);
-  $('#indicator').hidden=!options.working;$('#indicator').textContent=progressBar(options.progress);
+  $('#indicator').hidden=!options.working;$('#indicator').textContent=progressBar(options.progress);$('#indicator').setAttribute('role','progressbar');$('#indicator').setAttribute('aria-label','Etapa atual no servidor');$('#indicator').setAttribute('aria-valuemin','0');$('#indicator').setAttribute('aria-valuemax','100');if(options.progress===undefined){$('#indicator').removeAttribute('aria-valuenow');$('#indicator').setAttribute('aria-valuetext',label+'; percentual indisponível');}else{$('#indicator').setAttribute('aria-valuenow',String(options.progress));$('#indicator').setAttribute('aria-valuetext',`${options.progress}% da faixa de origem; processamento ainda pendente`);}
   const step=/ANALISANDO/.test(label)?1:/MÍDIA DISPONÍVEL/.test(label)?2:/PREPARANDO|TRANSFERINDO/.test(label)?3:/ARQUIVO PREPARADO|DOWNLOAD INICIADO/.test(label)?4:0;
   document.querySelectorAll<HTMLElement>('#pipeline [data-step]').forEach(node=>{node.classList.toggle('step-current',Number(node.dataset.step)===step);if(Number(node.dataset.step)===step)node.setAttribute('aria-current','step');else node.removeAttribute('aria-current');});
 }
@@ -62,7 +62,7 @@ function updateFormats(){
 function updateSize(){
   const selected=currentMedia()?.formats.find(f=>f.id===format.value);if(!selected)return;
   $('#conversion-label').hidden=selected.mode!=='audio';conversion.disabled=selected.mode!=='audio';conversion.value=selected.mode==='audio'?prefs.audioFormat:'original';
-  $('#size-hint').textContent=selected.size?`${selected.estimated?'Tamanho estimado da origem':'Tamanho informado pela origem'}: ${bytes(selected.size)}. Conversões podem alterar o tamanho final.`:'O tamanho final será conhecido após a preparação. Limite: 100 MiB.';
+  $('#size-hint').textContent=selected.size?`${selected.estimated?'Tamanho estimado da origem':'Tamanho informado pela origem'}: ${bytes(selected.size)}. Conversões podem alterar o tamanho final.`:'Tamanho não informado. Sem limite de tamanho imposto pela aplicação; depende da origem e do armazenamento disponível.';
 }
 function renderMedia(){
   const media=currentMedia();if(!media)return;
@@ -77,14 +77,14 @@ document.querySelectorAll<HTMLInputElement>('[name=mode]').forEach(radio=>radio.
 $('#analyze-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy)return;
   let url:string;try{url=validateURL(input.value);}catch(error){$('#url-error').textContent=(error as Error).message;$('#url-error').hidden=false;input.setAttribute('aria-invalid','true');input.focus();return;}
-  resetResults();lock(true);abort=new AbortController();const timeout=setTimeout(()=>abort?.abort('timeout'),95000);
+  resetResults();lock(true);abort=new AbortController();
   const active=abort;state('ANALISANDO','Consultando a origem e os formatos disponíveis...',{working:true});
   try{
     if(await inspectSingle(url,active.signal)){state('PLAYLIST DISPONÍVEL','Playlist detectada. Confira a seleção no painel de lote.');return;}
     analysis=await analyze(url,active.signal);itemSelect.replaceChildren(...analysis.items.map((item,i)=>new Option(`[${String(i+1).padStart(2,'0')}] ${item.title}`,item.id)));
     $('#media-panel').hidden=false;renderMedia();state('MÍDIA DISPONÍVEL',`${analysis.items.length} mídia(s) encontrada(s). Escolha o formato e prepare o arquivo.`);$('#media-panel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches||prefs.reducedMotion?'instant':'smooth',block:'start'});
   }catch(error){state(active.signal.aborted?'CANCELADO':'FALHA NA ANÁLISE',active.signal.aborted?(active.signal.reason==='timeout'?'Tempo limite atingido. Tente novamente.':'Análise cancelada.'):(error as Error).message,{error:!active.signal.aborted});$('#retry').hidden=false;}
-  finally{clearTimeout(timeout);abort=undefined;lock(false);}
+  finally{abort=undefined;lock(false);}
 });
 $('#retry').addEventListener('click',()=>{$('#retry').hidden=true;$<HTMLFormElement>('#analyze-form').requestSubmit();});
 async function cancel(){generation++;if(poll)clearTimeout(poll);abort?.abort();if(jobId){const id=jobId;jobId=undefined;try{await request(`/jobs/${id}`,{method:'DELETE'});}catch{/* The task also expires on the server. */}}lock(false);$('#save-file').hidden=true;state('CANCELADO','Operação cancelada. Você pode tentar novamente.');}
@@ -93,15 +93,20 @@ $('#new-download').addEventListener('click',async()=>{await cancel();resetResult
 function fileReady(job:Job){
   lock(false);state('ARQUIVO PREPARADO',`[ok] ${job.filename||'Arquivo'}${job.size?` / ${bytes(job.size)}`:''}. Clique abaixo para iniciar o download.`);
   const link=$<HTMLAnchorElement>('#save-file');link.href=fileURL(job);link.download=job.filename||'potato';link.referrerPolicy='no-referrer';link.hidden=false;
-  $('#transfer-note').textContent='O navegador assume a transferência. O Potato não confirma se o arquivo foi salvo. Arquivo temporário: 15 minutos.';$('#transfer-note').hidden=false;
+  $('#transfer-note').textContent='O navegador assume a transferência. O Potato não confirma se o arquivo foi salvo. Arquivo temporário: 15 minutos para iniciar. Após o envio completo, a cópia no servidor é removida. Transferências ativas não expiram por duração.';$('#transfer-note').hidden=false;
 }
-$('#save-file').addEventListener('click',()=>{state('DOWNLOAD INICIADO','Download iniciado pelo navegador. Acompanhe o gerenciador de downloads.');});
+$('#save-file').addEventListener('click',()=>{state('DOWNLOAD INICIADO','Download iniciado pelo navegador. Acompanhe o gerenciador de downloads.');if(jobId)void monitorDelivery(jobId,generation);});
+async function monitorDelivery(id:string,version:number){
+  try{const job=await getJob(id);if(version!==generation)return;if(job.state==='sent'||job.state==='archived'){state('ENVIO ENCERRADO',job.message||'O servidor concluiu o envio. Gravação no dispositivo não confirmada.');$('#save-file').hidden=true;return;}if(job.transfer==='interrupted'||job.transfer==='partial'){fileReady(job);$('#status').textContent=job.message||'Transferência interrompida. Você pode tentar novamente.';return;}if(job.state==='cancelled'||job.state==='error'){state('FALHA',job.message||'Arquivo indisponível.');$('#save-file').hidden=true;return;}}catch(error){if(error instanceof ServiceError&&[401,404,410].includes(error.status))return;}if(version===generation)poll=setTimeout(()=>void monitorDelivery(id,version),2000);
+}
 async function monitor(id:string,version:number){
   try{
     const job=await getJob(id);if(version!==generation)return;
     if(job.state==='ready')return fileReady(job);
+    if(job.state==='sent'||job.state==='archived'){lock(false);state('ENVIO ENCERRADO',job.message||'Arquivo temporário liberado.');return;}
     if(job.state==='error'||job.state==='cancelled'){lock(false);state(job.state==='error'?'FALHA':'CANCELADO',job.message||'Operação cancelada.',{error:job.state==='error'});$('#retry').hidden=false;return;}
-    state(job.state==='downloading'?'TRANSFERINDO PARA O SERVIDOR':job.state==='processing'?'CONVERTENDO / COMBINANDO':'PREPARANDO ARQUIVO',job.state==='downloading'?'Recebendo a mídia no servidor. O percentual corresponde à faixa atual da origem.':'Preparando ou convertendo o arquivo no servidor...',{working:true,progress:job.progress});
+    state(job.state==='downloading'?'TRANSFERINDO PARA O SERVIDOR':job.state==='processing'?'CONVERTENDO / COMBINANDO':'PREPARANDO ARQUIVO',job.state==='downloading'?'Recebendo a mídia no servidor. O percentual, quando disponível, corresponde apenas à faixa atual da origem.':'Preparando ou convertendo o arquivo no servidor...',{working:true,progress:job.progress});
+    $('#transfer-note').hidden=job.state!=='downloading';if(job.state==='downloading')$('#transfer-note').textContent=`${job.downloaded!==undefined?bytes(job.downloaded)+' recebidos':'aguardando bytes'}${job.total?' / '+bytes(job.total):' / total desconhecido'}${job.speed?' / '+bytes(job.speed)+'/s':''}${job.eta!==undefined?' / restante da faixa: ~'+duration(job.eta):''}`;
     poll=setTimeout(()=>void monitor(id,version),1200);
   }catch(error){if(version!==generation)return;if(error instanceof ServiceError&&[401,404,410].includes(error.status)){lock(false);state('FALHA',(error as Error).message,{error:true});return;}state('CONEXÃO INTERROMPIDA','Acompanhamento sem conexão; recuperando o estado sem reiniciar o trabalho.',{error:true});poll=setTimeout(()=>void monitor(id,version),5000);}
 }

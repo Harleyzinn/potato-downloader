@@ -3,6 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 python3
 ARG YTDLP_VERSION=2026.10.21
 RUN python3 -m venv /opt/engine && /opt/engine/bin/pip install --no-cache-dir "yt-dlp[default]==${YTDLP_VERSION}"
 WORKDIR /app
+RUN mkdir /work && chown node:node /work
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY backend ./backend

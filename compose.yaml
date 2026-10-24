@@ -7,9 +7,15 @@ services:
       - "127.0.0.1:8787:8787"
     environment:
       ALLOWED_ORIGINS: https://harleyzinn.github.io,http://127.0.0.1:5173,http://localhost:5173
+      TEMP_ROOT: /work
+      TMPDIR: /work
+      WORKER_IDLE_MS: ${WORKER_IDLE_MS:-600000}
+      STREAM_IDLE_MS: ${STREAM_IDLE_MS:-300000}
     mem_limit: 1g
     cpus: 2
     pids_limit: 100
     read_only: true
-    tmpfs:
-      - /tmp:size=512m,mode=1777
+    volumes:
+      - potato-work:/work
+volumes:
+  potato-work:

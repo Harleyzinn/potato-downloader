@@ -37,6 +37,6 @@ export function readCompatibility():Compatibility{
     'Listado no motor não significa download garantido. Extratores marcados como quebrados permanecem identificados no catálogo.',
     'Somente conteúdo público, sem senhas, cookies de contas, autenticação, DRM, paywalls ou contorno de região/idade.',
     'HLS e DASH sob demanda quando suportados pelo downloader nativo. Ao vivo e protocolos RTMP/RTSP não são aceitos.',
-    '20 minutos, 100 MiB por arquivo, dois processos e quatro transferências simultâneas. Até oito itens de uma coleção.',
+    'Sem limite de tamanho imposto pela aplicação. Dois processos e quatro transferências simultâneas; armazenamento e infraestrutura possuem limites próprios.',
   ]};
 }
