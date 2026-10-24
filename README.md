@@ -120,11 +120,11 @@ O backend permite a origem exata `https://harleyzinn.github.io` (a origem não i
 - Análise com título, autoria e duração quando informados pela origem. Não inventa capas, tamanhos ou metadados.
 - Automático, vídeo e áudio conforme os formatos extraídos. Vídeo ausente fica desativado para mídia de áudio.
 - Qualidade de origem, extração e conversão para MP3, Opus ou WAV usando ffmpeg. Não oferece upscale nem formato de vídeo inventado.
-- Galerias/itens múltiplos apenas quando o extrator retorna entradas com formatos; até 8 itens. Nem toda galeria de fotos de Instagram/TikTok é suportada.
+- Playlists e galerias quando o extrator retorna entradas públicas: listagem em páginas de 25, até 200 itens; fila de até 20 itens. Nem toda galeria de fotos de Instagram/TikTok é suportada.
 - Progresso real do download **para o servidor** quando o motor informa bytes totais; indicador indeterminado nos demais casos. Em streams separados o percentual pode reiniciar para a segunda faixa. Conversão não tem percentual fictício.
 - Após preparação, streaming com `Content-Disposition` e nome sanitizado. Ao clicar, mostra **Download iniciado**; não alega que o arquivo foi salvo.
 - 100 MiB por trabalho, 20 minutos por mídia, 2 processos simultâneos, 90 s de análise e 8 min de preparação, retenção de até 15 min. Conversão pode ultrapassar tamanho e ser cancelada.
-- Preferências locais, restauração de padrões, movimento reduzido e navegação por teclado. Sem histórico.
+- Preferências locais, restauração de padrões, movimento reduzido e navegação por teclado. Histórico desativado por padrão; persistência opcional de rascunhos de lote.
 
 ### Cobertura ampliada (v2.1)
 
@@ -181,7 +181,7 @@ Nenhuma API pública do Cobalt foi usada e nenhuma nova alegação de plataforma
 - Todo tráfego do yt-dlp usa proxy privado em loopback que valida DNS de cada destino, rejeita IPs privados/reservados/mapeados e fixa o IP público no socket. Cada redirecionamento passa pela mesma verificação, reduzindo SSRF e rebinding. A leitura limitada de cabeçalho usa a mesma validação e pinagem, com até cinco redirecionamentos, timeout e limite de bytes próprios. FFmpeg não recebe URLs na inspeção de cabeçalhos.
 - Execução com argumentos, sem shell e sem argumentos fornecidos pelo cliente. Apenas IDs de formatos previamente analisados; caminhos locais controlados pelo servidor.
 - Limites de corpo, processos, saída JSON, tempo e arquivos. Reserva de espaço antes de preparar trabalhos (512 MiB no total), até quatro streams e dois por arquivo. Watchdog de tamanho em disco e limpeza periódica/cancelamento. Arquivos não são carregados inteiros na memória do navegador.
-- IDs aleatórios de análise/trabalho funcionam como capacidades temporárias. Não compartilhe links de arquivos que queira manter privados. Não são persistidos no navegador nem publicados no repositório.
+- Análises e trabalhos são isolados por sessão protegida. Links de arquivos têm capacidades aleatórias temporárias; não os compartilhe se quiser manter privacidade. O token da sessão pode ficar em sessionStorage; URLs só são persistidas na opção explícita de rascunho.
 - O limitador é por IP da conexão; por um túnel todos podem compartilhar o limite. Para maior escala, implemente uma política na borda e isolamento de rede/contêiner; CORS não substitui autenticação nem controle de abuso.
 - Não registra URLs, títulos ou erros brutos do extrator. Metadados ficam em memória até expirar e arquivos temporários no servidor até 15 min. A limpeza periódica também remove diretórios órfãos expirados após reiniciar o motor; arquivos bloqueados são tentados novamente no próximo ciclo. O Compose usa tmpfs.
 
@@ -212,3 +212,60 @@ Código original do Potato: MIT, veja [LICENSE](LICENSE). yt-dlp: [Unlicense](ht
 ## Visual Terminal Edition (v2.3)
 
 A apresentação ganhou desenhos ASCII associados aos estados reais (aguardando, análise, mídia disponível, preparação, arquivo pronto, início pelo navegador, cancelamento e erro), ícones de caracteres nos modos, árvore de navegação, moldura de terminal, caixas `[ ]`/`[x]` e setas `[v]` nos seletores. Os controles continuam sendo HTML nativo, com rótulos, foco e teclado; as ilustrações ficam ocultas dos leitores de tela. Movimento reduzido é respeitado. Não há progresso ou conclusão simulados. Essa revisão altera a apresentação, sem trocar o motor, as regras de fontes ou os endereços publicados.
+
+## Playlists e lotes — Harvest Edition (v3.0)
+
+**Um link** detecta playlists e abre a prévia sem iniciar downloads. Para vídeo que inclui uma playlist, o padrão é apenas o vídeo; **Explorar playlist deste vídeo** oferece a outra escolha. Em **Playlist / vários links**, cole um endereço por linha, preservando parâmetros necessários. URLs iguais são deduplicadas antes da análise; o identificador do extrator reconhece o mesmo conteúdo quando disponível, sem prometer reconhecer toda URL alternativa.
+
+A prévia mostra autoria, total e duração somente quando recebidos. Inclui busca, filtro, seleção individual, todos/nenhum/inversão e intervalos `1-10` ou `1,3,5-12`. A seleção abrange os itens carregados e permanece entre buscas e páginas de interface (10 cartões). **Carregar mais da origem** busca outra página de até 25 itens. A listagem para em 200, com aviso para totais desconhecidos ou listagens parciais. Várias playlists na mesma entrada recebem apenas a primeira página de cada uma; analise uma separadamente para continuar sua listagem.
+
+**Conferir formatos selecionados** resolve cada item, sem baixar a mídia completa. Somente formatos encontrados aparecem nos seletores individuais. Preferências globais de modo, teto de qualidade e conversão de áudio são conferidas na origem: sem formato adequado, escolha uma alternativa ou desmarque o item. Falhas ficam identificadas e podem ser desmarcadas para baixar os demais. A análise transfere metadados e pode ler pequenos cabeçalhos para identificar codecs.
+
+Revise o resumo, adicione até 20 itens e clique **Iniciar / retomar fila**. A ordem inicial segue a origem. Pendentes podem trocar de posição com vizinhos pendentes. Pausar impede novos trabalhos; não pausa transferência ou conversão ativa, cujo acompanhamento continua. Cancelar encerra extração/conversão quando possível; uma transferência entregue ao navegador precisa ser cancelada nele. Falhas não interrompem os demais. **Repetir falhas** renova a análise apenas dos itens com erro. O yt-dlp repete pedidos/fragmentos uma vez; o cliente repete uma falha de conexão na criação, com a mesma chave idempotente. Limites de uso não são repetidos automaticamente.
+
+### Progresso e arquivos
+
+Barras individuais medem a **faixa de origem recebida pelo servidor**, com bytes, velocidade e ETA de `--progress-template`. Sem total confiável, ficam indeterminadas. Faixas separadas podem reiniciar a barra. Conversão/combinação e ZIP têm estados próprios; não reutilizam o percentual de transferência. A barra geral é de **itens finalizados** (prontos, falhas e cancelados), com contadores separados. **Pronto para baixar** confirma o arquivo no servidor; **Download iniciado no navegador** não confirma gravação no dispositivo.
+
+Arquivos individuais são transmitidos por streaming. ZIP é criado com Archiver 8 no servidor usando arquivos temporários, sem carregar a mídia inteira no navegador. O método STORE empacota sem recompressão. A compactação mostra entradas processadas quando disponíveis, sem inventar percentual de bytes. Nomes são sanitizados e diretórios exclusivos; numeração original é opcional nos arquivos individuais e entradas de ZIP têm prefixos únicos. O pacote usa até 20 arquivos prontos e 200 MiB de origens, exigindo espaço para fontes e ZIP. **Limpar finalizados e arquivos** solicita remoção no servidor; sem conexão, a expiração continua valendo.
+
+### Sessão, fechamento e privacidade
+
+O token de sessão aleatório de 256 bits fica no `sessionStorage`, sem URLs, quando permitido. Análises e trabalhos exigem `X-Potato-Session`. Cada arquivo tem uma capacidade aleatória no link: trate esse link como privado. Não há segredo compartilhado no frontend, cookies de plataformas ou senhas. URLs, tokens e metadados não são registrados nos logs da aplicação.
+
+A página coordena a fila pendente. Fechar/recarregar impede novos trabalhos pendentes. Trabalhos já aceitos podem terminar no servidor e ser recuperados ao reabrir a mesma aba/sessão, antes de expirar. Isso não é fila durável: reiniciar o backend perde o estado. Na recuperação, novos trabalhos ficam pausados e os aceitos continuam sendo acompanhados. Consultas ocorrem a cada 1,5 segundo, com recuo até 15 segundos em falhas sem iniciar outra tarefa. O ZIP usa 2 segundos. Consultas terminam quando não forem necessárias ou a página fechar.
+
+Histórico e links não são persistidos por padrão. A opção explícita de salvar rascunho grava links em `localStorage`; restaurar exige nova análise e não inicia downloads. Preferências do lote ficam localmente. **Apagar dados locais** remove rascunho, preferências e token armazenado; trabalhos aceitos só são interrompidos pelo cancelamento ou expiração.
+
+### Limites desta instalação
+
+| Recurso | Limite |
+| --- | --- |
+| Entrada / fila | 20 URLs / 20 itens |
+| Playlist | 25 itens por consulta, até 200 listados |
+| Prévia | 10 cartões por página |
+| Concorrência | 1 trabalho da fila por página; 2 operações globais no backend |
+| Mídia | 100 MiB finais, 20 minutos; 8 minutos de processamento |
+| Listagem / análise | 90 segundos por pedido |
+| ZIP | 20 arquivos; 200 MiB de origens; 60 segundos |
+| Disco temporário | 512 MiB compartilhados, verificados antes e durante trabalhos |
+| Rede | 5 MiB/s por yt-dlp; 4 transferências globais e 2 por arquivo |
+| Tráfego entregue | 512 MiB por sessão; contagem conservadora de arquivos solicitados |
+| Pedidos | 150 POSTs por 10 minutos por endereço observado pelo servidor |
+| Disponibilidade | 15 minutos após preparo; coleta a cada 30 segundos; sessão de 1 hora de inatividade |
+
+O túnel temporário continua sendo transporte para este computador, sujeito às limitações documentadas acima. Não houve contratação paga. O Pages serve apenas o frontend. Todas as extrações continuam pelo proxy privado com validação e fixação de DNS a cada conexão/redirecionamento. O inventário público e a política de exemplos de fontes permanecem iguais.
+
+### Documentação e atualização
+
+Usamos a [documentação oficial do yt-dlp](https://github.com/yt-dlp/yt-dlp#usage-and-options): `--flat-playlist`, `--playlist-items`, `--yes-playlist`/`--no-playlist`, JSON e templates de progresso. A listagem plana pode omitir metadados; cada selecionado é resolvido novamente. ZIP usa a [API oficial do Archiver](https://www.archiverjs.com/docs/archiver/) e a classe ESM `ZipArchive` da versão 8 instalada. Atualize o yt-dlp por `npm run engine:update` e reinicie o backend, sem reescrever a UI. Dependências JavaScript usam `npm ci` e o lockfile, inclusive no Dockerfile.
+
+### Verificação da v3.0
+
+Integração real em 24/10/2026: playlist pública **Official Blender Open Movies**, 17 itens com autoria e duração; **Caminandes 2: Gran Dillama**, selecionado da playlist, baixado e convertido para MP3 (2.381.336 bytes); demonstração W3Schools `mov_bbb.mp4`, convertida para MP3 (147.309 bytes); ZIP de ambos (2.529.019 bytes), baixado e validado com verificação de CRC. A repetição da criação retornou o mesmo trabalho. Outra sessão não pôde ler seu estado e o arquivo sem sua capacidade foi bloqueado. Isso verifica esses exemplos, não todos os extratores ou playlists.
+
+Testes isolados cobrem intervalos, deduplicação sem apagar queries, preferências sem troca silenciosa, paginação, entradas ausentes/privadas, URLs internas, continuidade após falha/cancelamento e pausa do início mantendo acompanhamento. Não usamos credenciais nem itens privados reais. Metadados construídos nos testes não contam como fontes verificadas.
+
+Verificações reais adicionais da v3.0: criações concorrentes com a mesma chave resultaram em um trabalho e rejeição da concorrente; cancelamento ativo confirmado; recuperação do trabalho pela mesma sessão; bloqueios de CORS, URL interna, página acima do limite e ZIP com 21 entradas. Na UI, links repetidos foram ignorados, um arquivo HTTP 404 ficou desabilitado sem impedir os demais e pausar manteve o próximo item aguardando enquanto o aceito terminou.
+
+Também foi verificada uma interrupção real do acesso ao proxy de desenvolvimento durante a transferência do trecho aberto do Wikimedia Commons (1080p OGV, 31,1 MiB). A UI exibiu o aviso de acompanhamento sem conexão e, após restabelecer o acesso e recuperar a sessão, encontrou o mesmo trabalho pronto, sem novo download. O total ficou em três trabalhos, sem duplicação. O fluxo individual MP4 e o ZIP da fila foram baixados pelo navegador. Layout de 390 px sem rolagem horizontal e navegação por Tab também foram conferidos. Uma nova tentativa de análise do Big Buck Bunny completo no YouTube retornou restrição nesta rede; isso não invalida a listagem pública, mas reforça que a disponibilidade de cada item precisa ser conferida.

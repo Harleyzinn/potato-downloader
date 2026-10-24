@@ -8,7 +8,7 @@ const require=createRequire(import.meta.url);
 export const ffmpegPath=process.env.FFMPEG_PATH || require('ffmpeg-static') as string;
 export const ytdlpPath=process.env.YTDLP_PATH || (existsSync(resolve('.runtime/yt-dlp.exe')) ? resolve('.runtime/yt-dlp.exe') : 'yt-dlp');
 type RawFormat={format_id?:string;ext?:string;vcodec?:string;acodec?:string;height?:number;abr?:number;filesize?:number;filesize_approx?:number;protocol?:string;has_drm?:boolean;url?:string};
-export type RawMedia=RawFormat&{id?:string;title?:string;uploader?:string;creator?:string;duration?:number;formats?:RawFormat[];entries?:RawMedia[];webpage_url?:string;original_url?:string;url?:string;is_live?:boolean;live_status?:string;availability?:string;extractor_key?:string;extractor?:string};
+export type RawMedia=RawFormat&{id?:string;title?:string;uploader?:string;creator?:string;duration?:number;formats?:RawFormat[];entries?:(RawMedia|null)[];webpage_url?:string;original_url?:string;url?:string;is_live?:boolean;live_status?:string;availability?:string;extractor_key?:string;extractor?:string;ie_key?:string;playlist_index?:number;playlist_count?:number;n_entries?:number;_type?:string};
 export function mediaOptions(raw:RawMedia,id:string):Media {
   if(raw.is_live)throw new Error('Transmissões ao vivo não são suportadas.');
   if(raw.has_drm)throw new Error('DRM');
@@ -28,7 +28,7 @@ export function mediaOptions(raw:RawMedia,id:string):Media {
     if(f.acodec && f.acodec!=='none')formats.push({id:`a:${f.format_id}`,mode:'audio',label:`Áudio de ${f.ext||'original'}${f.abr ? ` / ${Math.round(f.abr)} kbps` : ''}`,ext:f.ext||'m4a',size,estimated:!f.filesize});
   }
   if(!formats.length)throw new Error('Nenhum formato público compatível. A mídia pode estar restrita.');
-  return {id,title:String(raw.title || 'Potato Dumper').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,source:String(raw.extractor_key||raw.extractor||'generic').slice(0,100),formats:formats.reverse().slice(0,100)};
+  return {id,title:String(raw.title || 'Potato Dumper').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,source:String(raw.extractor_key||raw.extractor||'generic').slice(0,100),identity:raw.id?`${raw.extractor_key||raw.extractor||'generic'}:${raw.id}`:undefined,formats:formats.reverse().slice(0,100)};
 }
 export function publicError(text:string):string {
   if(/Transmissões ao vivo/.test(text))return 'Este motor aceita streams sob demanda (VOD), mas não grava transmissões ao vivo.';
@@ -44,7 +44,7 @@ export function publicError(text:string):string {
   return 'Não foi possível processar a mídia. Tente outro link público ou novamente mais tarde.';
 }
 export function launch(args:string[],proxy:string,signal:AbortSignal,onLine?:(line:string)=>void):{child:ChildProcess;result:Promise<string>} {
-  const child=spawn(ytdlpPath,['--ignore-config','--no-plugin-dirs','--xff','never','--js-runtimes',`node:${process.execPath}`,'--no-cache-dir','--no-cookies','--no-playlist','--playlist-end','8','--socket-timeout','20','--retries','1','--fragment-retries','1','--proxy',proxy,'--ffmpeg-location',ffmpegPath,...args],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,NO_PROXY:'',no_proxy:''}});
+  const child=spawn(ytdlpPath,['--ignore-config','--no-plugin-dirs','--xff','never','--js-runtimes',`node:${process.execPath}`,'--no-cache-dir','--no-cookies','--no-playlist','--socket-timeout','20','--retries','1','--fragment-retries','1','--limit-rate','5M','--proxy',proxy,'--ffmpeg-location',ffmpegPath,...args],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,NO_PROXY:'',no_proxy:''}});
   const result=new Promise<string>((done,fail)=>{
     let out='',err='',pending='';let settled=false;
     const stop=()=>{

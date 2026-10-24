@@ -9,7 +9,7 @@ export function terminalIllustration(label:string):string{
   if(/CANCELADO/.test(label))return '  +-----------+\n  | cancelado |   operação cancelada\n  +-----------+   pronto para recomeçar';
   if(/DOWNLOAD INICIADO/.test(label))return '    .----.\n    | .--|----.   pedido enviado\n    | |  v   |   ao navegador\n    \'-|______|   [ siga por aqui -> ]';
   if(/ARQUIVO PREPARADO/.test(label))return '    .------.\n    | .--. |    [ok] arquivo pronto\n    | |##| |    escolha salvar abaixo\n    |______|';
-  if(/PREPARANDO|TRANSFERINDO/.test(label))return '  [ origem ] --#--> [ arquivo ]\n                        |\n                   +----v----+\n                   |  disco  |\n                   +---------+';
+  if(/PREPARANDO|TRANSFERINDO|CONVERTENDO|COMBINANDO/.test(label))return '  [ origem ] --#--> [ arquivo ]\n                        |\n                   +----v----+\n                   |  disco  |\n                   +---------+';
   if(/MÍDIA DISPONÍVEL/.test(label))return '     .-----.\n     | >   |    opções encontradas\n     \'-----\'    formatos da sua mídia';
   if(/ANALISANDO/.test(label))return '   URL --[?]--> .--------.\n                | motor  |\n                |  >_    |\n                \'--------\'';
   return '      .---.       .---------.\n     / o . \\  --> |  caixa  |\n    | .  o |      | de mídia|\n     \\____/       \'---------\'';

@@ -1,7 +1,8 @@
 import './style.css';
 import type {Analysis,Media,Mode,Job} from './types.ts';
 import {element as $,asciiTitle,bytes,duration,progressBar,terminalIllustration} from './components.ts';
-import {apiBase,analyze,getHealth,getJob,request,validateURL} from './service.ts';
+import {apiBase,analyze,getHealth,getJob,request,validateURL,fileURL,ServiceError} from './service.ts';
+import {initBatch,inspectSingle} from './batch.ts';
 import {defaults,loadPreferences,savePreferences} from './preferences.ts';
 import {refreshCatalog} from './catalog.ts';
 import {isPublicExample} from './presentation.ts';
@@ -39,7 +40,7 @@ async function health(){
     for(const name of data.platforms.filter(isPublicExample)){const span=document.createElement('span');span.className='chip';span.textContent=name;$('#platform-list').append(span);}
     void refreshCatalog();
     $('#service-notice').hidden=!data.temporary;
-    $('#service-notice').textContent='[!] Motor temporário: funciona enquanto o computador e o túnel estiverem ligados. Os links não são armazenados no navegador.';
+    $('#service-notice').textContent='[!] Motor temporário: funciona enquanto o computador e o túnel estiverem ligados. Histórico desativado por padrão; persistência opcional no painel de lote.';
   }catch(error){$('#health-button').textContent='[!] motor desconectado';$('#platform-list').textContent='Lista indisponível até conectar o motor.';$('#service-notice').hidden=false;$('#service-notice').textContent=`[!] ${error instanceof Error?error.message:'Motor indisponível.'} O frontend está pronto; downloads precisam do serviço conectado.`;}
 }
 $('#health-button').addEventListener('click',()=>void health());$('#reconnect').addEventListener('click',()=>void health());void health();
@@ -79,6 +80,7 @@ $('#analyze-form').addEventListener('submit',async event=>{
   resetResults();lock(true);abort=new AbortController();const timeout=setTimeout(()=>abort?.abort('timeout'),95000);
   const active=abort;state('ANALISANDO','Consultando a origem e os formatos disponíveis...',{working:true});
   try{
+    if(await inspectSingle(url,active.signal)){state('PLAYLIST DISPONÍVEL','Playlist detectada. Confira a seleção no painel de lote.');return;}
     analysis=await analyze(url,active.signal);itemSelect.replaceChildren(...analysis.items.map((item,i)=>new Option(`[${String(i+1).padStart(2,'0')}] ${item.title}`,item.id)));
     $('#media-panel').hidden=false;renderMedia();state('MÍDIA DISPONÍVEL',`${analysis.items.length} mídia(s) encontrada(s). Escolha o formato e prepare o arquivo.`);$('#media-panel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches||prefs.reducedMotion?'instant':'smooth',block:'start'});
   }catch(error){state(active.signal.aborted?'CANCELADO':'FALHA NA ANÁLISE',active.signal.aborted?(active.signal.reason==='timeout'?'Tempo limite atingido. Tente novamente.':'Análise cancelada.'):(error as Error).message,{error:!active.signal.aborted});$('#retry').hidden=false;}
@@ -90,7 +92,7 @@ $('#cancel').addEventListener('click',()=>void cancel());
 $('#new-download').addEventListener('click',async()=>{await cancel();resetResults();input.value='';input.focus();state('PRONTO','Cole outro link para começar.');});
 function fileReady(job:Job){
   lock(false);state('ARQUIVO PREPARADO',`[ok] ${job.filename||'Arquivo'}${job.size?` / ${bytes(job.size)}`:''}. Clique abaixo para iniciar o download.`);
-  const link=$<HTMLAnchorElement>('#save-file');link.href=`${apiBase}/api/jobs/${encodeURIComponent(job.id)}/file`;link.download=job.filename||'potato';link.referrerPolicy='no-referrer';link.hidden=false;
+  const link=$<HTMLAnchorElement>('#save-file');link.href=fileURL(job);link.download=job.filename||'potato';link.referrerPolicy='no-referrer';link.hidden=false;
   $('#transfer-note').textContent='O navegador assume a transferência. O Potato não confirma se o arquivo foi salvo. Arquivo temporário: 15 minutos.';$('#transfer-note').hidden=false;
 }
 $('#save-file').addEventListener('click',()=>{state('DOWNLOAD INICIADO','Download iniciado pelo navegador. Acompanhe o gerenciador de downloads.');});
@@ -99,9 +101,9 @@ async function monitor(id:string,version:number){
     const job=await getJob(id);if(version!==generation)return;
     if(job.state==='ready')return fileReady(job);
     if(job.state==='error'||job.state==='cancelled'){lock(false);state(job.state==='error'?'FALHA':'CANCELADO',job.message||'Operação cancelada.',{error:job.state==='error'});$('#retry').hidden=false;return;}
-    state(job.state==='downloading'?'TRANSFERINDO PARA O SERVIDOR':'PREPARANDO ARQUIVO',job.state==='downloading'?'Recebendo a mídia no servidor. O percentual, quando disponível, corresponde ao arquivo de origem.':'Preparando ou convertendo o arquivo no servidor...',{working:true,progress:job.progress});
+    state(job.state==='downloading'?'TRANSFERINDO PARA O SERVIDOR':job.state==='processing'?'CONVERTENDO / COMBINANDO':'PREPARANDO ARQUIVO',job.state==='downloading'?'Recebendo a mídia no servidor. O percentual corresponde à faixa atual da origem.':'Preparando ou convertendo o arquivo no servidor...',{working:true,progress:job.progress});
     poll=setTimeout(()=>void monitor(id,version),1200);
-  }catch(error){if(version!==generation)return;lock(false);state('CONEXÃO INTERROMPIDA',(error as Error).message,{error:true});$('#retry').hidden=false;}
+  }catch(error){if(version!==generation)return;if(error instanceof ServiceError&&[401,404,410].includes(error.status)){lock(false);state('FALHA',(error as Error).message,{error:true});return;}state('CONEXÃO INTERROMPIDA','Acompanhamento sem conexão; recuperando o estado sem reiniciar o trabalho.',{error:true});poll=setTimeout(()=>void monitor(id,version),5000);}
 }
 $('#prepare').addEventListener('click',async()=>{
   if(busy||!analysis||!currentMedia())return;lock(true);$('#save-file').hidden=true;$('#transfer-note').hidden=true;$('#retry').hidden=true;
@@ -112,4 +114,7 @@ $('#prepare').addEventListener('click',async()=>{
   }catch(error){lock(false);state('FALHA AO PREPARAR',(error as Error).message,{error:true});$('#retry').hidden=false;}finally{abort=undefined;}
 });
 function clock(){$('#clock').textContent=new Date().toLocaleTimeString('pt-BR');}clock();setInterval(clock,1000);
-// Preferences are the only browser storage. Links, metadata and job IDs stay in memory.
+initBatch();
+
+// Keep decorative terminal borders out of accessible heading names.
+for(const heading of document.querySelectorAll<HTMLElement>('h2,h3')){const title=heading.textContent||'';if(title.startsWith('+--'))heading.setAttribute('aria-label',title.replace(/^\+--\s*|\s*--\+$/g,''));}

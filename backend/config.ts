@@ -6,4 +6,5 @@ export const config={
   tempRoot:process.env.TEMP_ROOT || join(tmpdir(),'potato-downloader'),
   maxBytes:100*1024*1024,maxDisk:512*1024*1024,maxDuration:1200,maxConcurrent:2,ttl:15*60*1000,
   temporary:process.env.TEMPORARY_HOST==='1',
+  maxBatch:20,playlistPage:25,maxPlaylist:200,maxZip:200*1024*1024,maxTraffic:512*1024*1024,
 };
