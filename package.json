@@ -1,6 +1,6 @@
 {
-  "name": "potato-downloader",
-  "version": "2.1.0",
+  "name": "potato-dumper",
+  "version": "2.2.0",
   "private": true,
   "type": "module",
   "engines": {

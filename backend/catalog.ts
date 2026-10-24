@@ -23,8 +23,6 @@ const definitions:Omit<SourceGroup,'installed'>[]=[
   {name:'Bandcamp',category:'audio',prefixes:['bandcamp']},
   {name:'Mixcloud',category:'audio',prefixes:['mixcloud']},
   {name:'Audiomack',category:'audio',prefixes:['audiomack']},
-  {name:'Pornhub',category:'adult',prefixes:['pornhub']},
-  {name:'XVideos',category:'adult',prefixes:['xvideos']},
   {name:'Internet Archive',category:'video',prefixes:['archive.org']},
   {name:'Wikimedia Commons',category:'video',prefixes:['wikimedia.org']},
   {name:'Arquivos diretos / HLS / DASH VOD',category:'direct',prefixes:['generic']},

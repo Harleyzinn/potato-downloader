@@ -2,6 +2,16 @@
 
 Data: 24/10/2026, America/Sao_Paulo.
 
+## Identidade e seleção pública v2.2
+
+- Nome implementado: Potato Dumper, incluindo título/descrição da página, marca textual, logo ASCII desktop, versão compacta, rodapé, pacote npm e documentação.
+- Repositório `Harleyzinn/potato-downloader`, caminho base `/potato-downloader/`, chaves de preferências e configuração Pages preservados. A mudança de nome não renomeia URLs.
+- A seleção pública passa a se chamar “Algumas fontes compatíveis”. Dois nomes e suas variantes foram retirados de exemplos, cartões e pesquisa visual, sem modificar o executável ou as regras de URL.
+- A API técnica mantém 1.755 entradas, incluindo os extratores omitidos visualmente. Os testes de aceitação dos hostnames ocultos validam apenas a sintaxe e ausência de uma allowlist, sem acessar esses sites ou alegar downloads verificados.
+- `backend/security.ts`, os argumentos de extração, o caminho base e o workflow permanecem inalterados nesta revisão. A única alteração no catálogo do backend remove exemplos públicos; a filtragem do frontend não participa da extração.
+- Dez testes automatizados, lint, tipos e build aprovados localmente. Interface conferida em 390 px sem overflow horizontal; pesquisa visual por ambos os nomes retorna uma mensagem de lista parcial, não de bloqueio.
+- A comparação documental Cobalt/yt-dlp está no README. Não foi executado benchmark com Cobalt nem registrada uma nova plataforma como testada. Mantido yt-dlp + FFmpeg para preservar os fluxos reais anteriores e evitar um segundo backend sem ganho comprovado.
+
 - Instalação limpa com `npm ci`: aprovada. npm audit retornou zero vulnerabilidades na instalação.
 - ESLint, TypeScript, seis testes isolados e build de produção: aprovados localmente e no GitHub Actions.
 - Primeira implantação oficial no Pages: workflow `40114733134`, jobs `check-build` e `deploy` aprovados.

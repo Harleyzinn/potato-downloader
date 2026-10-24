@@ -1,11 +1,11 @@
-# [p] Potato Downloader
+# [p] Potato Dumper
 
 Downloader de mídia com identidade própria em ASCII. Frontend em português, tons de batata, análise real de formatos e preparação de arquivos com **yt-dlp + ffmpeg**. Não usa API, instância nem código do Cobalt.
 
 - **Frontend:** https://harleyzinn.github.io/potato-downloader/
 - **Código:** https://github.com/Harleyzinn/potato-downloader
 
-![Interface ASCII do Potato Downloader publicada no GitHub Pages](docs/interface.png)
+![Interface ASCII do Potato Dumper publicada no GitHub Pages](docs/interface.png)
 
 ## Estado da instalação
 
@@ -130,7 +130,9 @@ O backend permite a origem exata `https://harleyzinn.github.io` (a origem não i
 
 A lista fixa de nove domínios foi substituída pela descoberta do **yt-dlp instalado**. O endpoint `/api/compatibility` consulta `--list-extractors` e `--version` ao iniciar o backend. Nesta instalação: **1.755 extratores**, dos quais **136** se declaram `CURRENTLY BROKEN`. Isso é uma contagem de extratores, não de sites funcionando.
 
-A tela ASCII **[04] fontes** tem pesquisa, grupos de vídeo/redes/áudio/adultos, indicação de extratores quebrados e um registro separado de downloads reais. Inclui YouTube, Vimeo, Dailymotion, Twitch, Bilibili, PeerTube, TikTok, Instagram, X, Reddit, Facebook, Bluesky, SoundCloud, Bandcamp, Mixcloud, Audiomack, Pornhub, XVideos e muitos outros que constam do inventário instalado. Pornhub e XVideos estão **listados, mas não foram testados com download real**; autenticação, verificação de idade, região e bloqueios podem impedir o uso. Nenhuma senha ou cookie de conta é solicitado, importado ou salvo.
+A tela ASCII **[04] fontes** apresenta **Algumas fontes compatíveis**: uma seleção ilustrativa de vídeo, redes sociais e áudio, com pesquisa, indicação de extratores quebrados e registros separados de downloads reais. Exemplos: YouTube, Vimeo, Dailymotion, Twitch, Bilibili, PeerTube, TikTok, Instagram, X, Reddit, Facebook, Bluesky, SoundCloud, Bandcamp, Mixcloud, Audiomack e Wikimedia Commons. A lista visual não é completa nem funciona como allowlist. O campo de URL permanece genérico.
+
+Alguns nomes foram retirados apenas da seleção e pesquisa visuais e dos exemplos promocionais. Isso não remove seus extratores do executável nem os bloqueia na validação do servidor. O inventário técnico da API continua completo, enquanto `src/presentation.ts` controla somente a exibição. Os totais informam o inventário instalado, não a quantidade de exemplos exibidos. Restrições de acesso, idade, região, DRM e ausência de formatos ainda podem impedir o uso. Não há importação de senhas ou cookies de contas; a alteração visual não constitui um novo teste de nenhuma fonte.
 
 Páginas genéricas, **arquivos HTTP/HTTPS diretos**, **HLS (`.m3u8`) e DASH (`.mpd`) sob demanda** são aceitos quando o extrator genérico e o downloader nativo encontram formatos compatíveis. Não é preciso editar uma lista de domínios para cada nova fonte. Não há suporte a `file://`, RTMP/RTSP, DRM ou gravação ao vivo. Galerias mostram até oito entradas com formatos válidos; fotos ou entradas sem formatos não são inventadas. Uma galeria pode retornar apenas os itens compatíveis.
 
@@ -156,6 +158,22 @@ docker compose up -d
 ```
 
 O argumento de build mantém a versão reproduzível; não usa atualizações silenciosas em cada requisição. As opções usadas são documentadas no [README oficial](https://github.com/yt-dlp/yt-dlp#usage-and-options). A configuração local e os diretórios de plugins são ignorados; não são ativados `.netrc`, login, cookies de navegador, falsificação de região ou download de componentes remotos.
+
+## Escolha do mecanismo (revisão em 24/10/2026)
+
+**Decisão: manter yt-dlp + FFmpeg.** A solução atual já usa esse motor; não é um terceiro extrator concorrente. Foram consultadas a [tabela oficial de serviços do Cobalt](https://github.com/imputnet/cobalt/blob/main/api/README.md#supported-services), sua [API](https://github.com/imputnet/cobalt/blob/main/docs/api.md) e [instalação própria](https://github.com/imputnet/cobalt/blob/main/docs/run-an-instance.md), além do [manual](https://github.com/yt-dlp/yt-dlp#readme) e da [lista com ressalvas do yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+
+| Critério | Cobalt documentado | yt-dlp e implementação atual |
+|---|---|---|
+| Variedade útil | Serviços explicitamente integrados, incluindo redes sociais, vídeo e SoundCloud. | Extratores específicos e genérico; no Potato já foram verificados arquivos diretos e manifests HLS/DASH VOD. |
+| Recursos | Vídeo/áudio, modos, qualidade, formatos e seleção múltipla; vantagens documentadas em fotos e slideshows de algumas redes. | Seleção de formatos reais, extração/conversão de áudio e remux com FFmpeg; a UI atual não promete galerias de fotos universais. |
+| Confiabilidade | A documentação aponta limitações por serviço, como áudio no Vimeo apenas via DASH e possíveis falhas no X. Não foi executado um comparativo local com Cobalt. | A lista oficial também não garante funcionamento. Mantemos versão, extratores quebrados e escopo dos testes reais separados. |
+| Manutenção | Outra API, atualizações, configuração e proteção da instância. | Atualização do executável/pacote e reinício do motor; catálogo dinâmico, sem reescrever a interface. |
+| Hospedagem | Docker Compose recomendado, backend com processamento e URL do túnel; uso de API hospedada depende de autorização. | Node, yt-dlp/Python ou executável e FFmpeg. O backend atual já funciona com esses requisitos; Pages hospeda somente o frontend. |
+
+A escolha considera os fluxos verificados e a operação disponível, **não só a contagem de extratores**. Não há evidência obtida nesta revisão de que trocar o motor melhore os downloads já funcionais. Combinar Cobalt agora acrescentaria um segundo serviço, contratos de resposta, proteção e manutenção, sem ganho comprovado por um caso concreto de regressão. As vantagens documentadas de Cobalt para certas galerias não são apresentadas como implementadas ou testadas no Potato. Uma combinação futura deve começar por uma mídia autorizada que falhe no motor atual e funcione na alternativa, preservando as mesmas proteções de rede.
+
+Nenhuma API pública do Cobalt foi usada e nenhuma nova alegação de plataforma testada foi adicionada nesta revisão. Os endereços `Harleyzinn/potato-downloader` e `/potato-downloader/` permanecem por compatibilidade, embora produto, pacote npm e logo agora se chamem **Potato Dumper**. A chave de preferências e a pasta temporária técnica existentes são mantidas para preservar preferências e limpeza de arquivos antigos.
 
 ## Segurança e privacidade
 

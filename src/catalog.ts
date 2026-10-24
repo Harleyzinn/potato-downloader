@@ -1,6 +1,7 @@
 import type {Compatibility} from './types.ts';
 import {element as $} from './components.ts';
 import {request} from './service.ts';
+import {isPublicExample} from './presentation.ts';
 let data:Compatibility|undefined,visible=24;
 export async function refreshCatalog(){
   try{
@@ -10,7 +11,7 @@ export async function refreshCatalog(){
     $('#engine-summary').textContent=`[${data.extractors.length.toLocaleString('pt-BR')}] extratores / yt-dlp ${data.version}`;
     $('#source-groups').replaceChildren();
     const labels={video:'[>]',social:'[/]',audio:'[~]',adult:'[18+]',direct:'[#]'};
-    for(const group of data.groups){
+    for(const group of data.groups.filter(group=>isPublicExample(group.name))){
       const box=document.createElement('div');box.className='source-group';
       const title=document.createElement('h3');title.textContent=`${labels[group.category]} ${group.name}`;
       const status=document.createElement('p');status.textContent=group.installed?'[+] extrator listado':'[-] ausente ou quebrado';status.className=group.installed?'hint':'error';box.append(title,status);$('#source-groups').append(box);
@@ -29,12 +30,12 @@ export async function refreshCatalog(){
 }
 function renderExtractors(){
   if(!data)return;const query=$<HTMLInputElement>('#extractor-search').value.trim().toLocaleLowerCase();
-  const matches=data.extractors.filter(item=>item.name.toLocaleLowerCase().includes(query));
+  const matches=data.extractors.filter(item=>isPublicExample(item.name)&&item.name.toLocaleLowerCase().includes(query));
   $('#extractor-rows').replaceChildren(...matches.slice(0,visible).map(item=>{
     const row=document.createElement('tr'),name=document.createElement('th'),status=document.createElement('td');
     name.scope='row';name.textContent=item.name;status.textContent=item.broken?'[!] QUEBRADO':'[+] LISTADO';status.className=item.broken?'error':'accent';row.append(name,status);return row;
   }));
-  $('#catalog-count').textContent=`[${Math.min(visible,matches.length)}/${matches.length}] resultados / [+] listado não significa testado`;
+  $('#catalog-count').textContent=`[${Math.min(visible,matches.length)}/${matches.length}] exemplos exibíveis / [+] listado não significa testado`;
   $('#catalog-empty').hidden=matches.length>0;$('#more-extractors').hidden=matches.length<=visible;
 }
 $('#extractor-search').addEventListener('input',()=>{visible=24;renderExtractors();});

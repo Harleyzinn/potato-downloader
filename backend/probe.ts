@@ -19,7 +19,7 @@ export async function readPublicPrefix(value:string,signal:AbortSignal,redirects
   const result=await new Promise<Buffer|string>((done,fail)=>{
     let complete=false;
     const finish=(data:Buffer|string)=>{if(complete)return;complete=true;done(data);};
-    const request=(url.protocol==='https:'?https.request:http.request)({hostname:dest.address,port:url.protocol==='https:'?443:80,servername:url.hostname,method:'GET',path:url.pathname+url.search,headers:{Host:url.host,Range:`bytes=0-${maximum-1}`,'User-Agent':'PotatoDownloader/2.1'},signal:limited},response=>{
+    const request=(url.protocol==='https:'?https.request:http.request)({hostname:dest.address,port:url.protocol==='https:'?443:80,servername:url.hostname,method:'GET',path:url.pathname+url.search,headers:{Host:url.host,Range:`bytes=0-${maximum-1}`,'User-Agent':'PotatoDumper/2.2'},signal:limited},response=>{
       if([301,302,303,307,308].includes(response.statusCode||0)){
         const location=response.headers.location;response.destroy();if(!location)return fail(new Error('Redirecionamento inválido.'));return finish(new URL(location,url).href);
       }

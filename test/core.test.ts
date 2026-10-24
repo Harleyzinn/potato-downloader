@@ -8,6 +8,7 @@ import net from 'node:net';
 import http from 'node:http';
 import {parseExtractors,groupSources} from '../backend/catalog.ts';
 import {readPublicPrefix} from '../backend/probe.ts';
+import {isPublicExample} from '../src/presentation.ts';
 
 test('blocks private, reserved and mapped IPv4/IPv6 destinations',()=>{
   for(const value of ['127.0.0.1','10.0.0.1','169.254.169.254','172.16.0.1','192.168.0.1','100.64.0.1','0.0.0.0','224.0.0.1','::1','::ffff:127.0.0.1','fe80::1','fc00::1','2001:db8::1'])assert.equal(isPublicIP(value),false,value);
@@ -25,9 +26,18 @@ test('catalog distinguishes installed, broken and verified instead of assuming s
   const extractors=parseExtractors('youtube\nPornHub\nXVideos (CURRENTLY BROKEN)\ngeneric\n');
   assert.equal(extractors.length,4);assert.equal(extractors[2].broken,true);
   const groups=groupSources(extractors);
-  assert.equal(groups.find(x=>x.name==='Pornhub')?.installed,true);
-  assert.equal(groups.find(x=>x.name==='XVideos')?.installed,false);
+  assert.ok(!groups.some(x=>/pornhub|xvideos/i.test(x.name)));
+  assert.ok(extractors.some(x=>x.name==='PornHub'));
   assert.equal(groups.find(x=>x.category==='direct')?.installed,true);
+});
+
+test('public examples do not restrict the generic URL boundary or the raw inventory',()=>{
+  for(const name of ['PornHub','PornHubPlaylist','XVideos','xvideos:quickies'])assert.equal(isPublicExample(name),false);
+  for(const name of ['YouTube','Vimeo','Bandcamp','Wikimedia Commons'])assert.equal(isPublicExample(name),true);
+  // Syntax-only validation: no network request or platform download is made here.
+  for(const host of ['www.pornhub.com','www.xvideos.com','media.public-source.org'])assert.equal(validateSource(`https://${host}/`).hostname,host);
+  const raw=parseExtractors('PornHub\nXVideos\ngeneric\n');assert.equal(raw.length,3);
+  assert.equal(raw.filter(x=>isPublicExample(x.name)).length,1);
 });
 
 test('bounded direct-file probe rejects local and credential URLs before opening a socket',async()=>{

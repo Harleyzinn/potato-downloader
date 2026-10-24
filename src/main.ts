@@ -4,6 +4,7 @@ import {element as $,asciiTitle,bytes,duration,progressBar} from './components.t
 import {apiBase,analyze,getHealth,getJob,request,validateURL} from './service.ts';
 import {defaults,loadPreferences,savePreferences} from './preferences.ts';
 import {refreshCatalog} from './catalog.ts';
+import {isPublicExample} from './presentation.ts';
 
 let prefs=loadPreferences(),analysis:Analysis|undefined,abort:AbortController|undefined,jobId:string|undefined;
 let busy=false,poll:ReturnType<typeof setTimeout>|undefined,generation=0;
@@ -18,7 +19,7 @@ function state(label:string,message:string,options:{error?:boolean;progress?:num
 }
 function lock(value:boolean){busy=value;$<HTMLButtonElement>('#analyze-button').disabled=value;$<HTMLButtonElement>('#prepare').disabled=value;input.disabled=value;$<HTMLButtonElement>('#paste').disabled=value;$<HTMLButtonElement>('#clear').disabled=value;$('#media-panel').inert=value;$('#cancel').hidden=!value;}
 function resetResults(){analysis=undefined;$('#media-panel').hidden=true;$('#save-file').hidden=true;$('#transfer-note').hidden=true;$('#retry').hidden=true;}
-function navigate(){const page=['baixar','ajustes','ajuda','fontes'].includes(location.hash.slice(1))?location.hash.slice(1):'baixar';document.querySelectorAll<HTMLElement>('.page').forEach(node=>node.hidden=node.id!==page);document.querySelectorAll<HTMLAnchorElement>('[data-page]').forEach(node=>{if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});$('#breadcrumb').textContent=`~/potato/${page}`;document.title=`Potato Downloader / ${page}`;}
+function navigate(){const page=['baixar','ajustes','ajuda','fontes'].includes(location.hash.slice(1))?location.hash.slice(1):'baixar';document.querySelectorAll<HTMLElement>('.page').forEach(node=>node.hidden=node.id!==page);document.querySelectorAll<HTMLAnchorElement>('[data-page]').forEach(node=>{if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});$('#breadcrumb').textContent=`~/potato/${page}`;document.title=`Potato Dumper / ${page}`;}
 window.addEventListener('hashchange',navigate);navigate();
 function preferenceUI(){
   $<HTMLSelectElement>('#pref-mode').value=prefs.mode;$<HTMLSelectElement>('#pref-quality').value=prefs.quality;$<HTMLSelectElement>('#pref-audio').value=prefs.audioFormat;$<HTMLInputElement>('#pref-motion').checked=prefs.reducedMotion;document.body.classList.toggle('no-motion',prefs.reducedMotion);
@@ -32,7 +33,7 @@ async function health(){
   try{
     const data=await getHealth();if(!data.online)throw new Error('O serviço respondeu, mas yt-dlp ou ffmpeg não está disponível.');
     $('#health-button').textContent='[*] motor conectado';$('#platform-list').replaceChildren();
-    for(const name of data.platforms){const span=document.createElement('span');span.className='chip';span.textContent=name;$('#platform-list').append(span);}
+    for(const name of data.platforms.filter(isPublicExample)){const span=document.createElement('span');span.className='chip';span.textContent=name;$('#platform-list').append(span);}
     void refreshCatalog();
     $('#service-notice').hidden=!data.temporary;
     $('#service-notice').textContent='[!] Motor temporário: funciona enquanto o computador e o túnel estiverem ligados. Os links não são armazenados no navegador.';

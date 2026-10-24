@@ -28,7 +28,7 @@ export function mediaOptions(raw:RawMedia,id:string):Media {
     if(f.acodec && f.acodec!=='none')formats.push({id:`a:${f.format_id}`,mode:'audio',label:`Áudio de ${f.ext||'original'}${f.abr ? ` / ${Math.round(f.abr)} kbps` : ''}`,ext:f.ext||'m4a',size,estimated:!f.filesize});
   }
   if(!formats.length)throw new Error('Nenhum formato público compatível. A mídia pode estar restrita.');
-  return {id,title:String(raw.title || 'Potato download').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,source:String(raw.extractor_key||raw.extractor||'generic').slice(0,100),formats:formats.reverse().slice(0,100)};
+  return {id,title:String(raw.title || 'Potato Dumper').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,source:String(raw.extractor_key||raw.extractor||'generic').slice(0,100),formats:formats.reverse().slice(0,100)};
 }
 export function publicError(text:string):string {
   if(/Transmissões ao vivo/.test(text))return 'Este motor aceita streams sob demanda (VOD), mas não grava transmissões ao vivo.';
