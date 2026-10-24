@@ -1,6 +1,6 @@
 import './style.css';
 import type {Analysis,Media,Mode,Job} from './types.ts';
-import {element as $,asciiTitle,bytes,duration,progressBar} from './components.ts';
+import {element as $,asciiTitle,bytes,duration,progressBar,terminalIllustration} from './components.ts';
 import {apiBase,analyze,getHealth,getJob,request,validateURL} from './service.ts';
 import {defaults,loadPreferences,savePreferences} from './preferences.ts';
 import {refreshCatalog} from './catalog.ts';
@@ -9,10 +9,13 @@ import {isPublicExample} from './presentation.ts';
 let prefs=loadPreferences(),analysis:Analysis|undefined,abort:AbortController|undefined,jobId:string|undefined;
 let busy=false,poll:ReturnType<typeof setTimeout>|undefined,generation=0;
 $('#ascii-title').textContent=asciiTitle();
+$('#terminal-art').textContent=terminalIllustration('PRONTO');
+document.querySelectorAll('select').forEach(select=>{const shell=document.createElement('span');shell.className='ascii-select';select.before(shell);shell.append(select);});
 const input=$<HTMLInputElement>('#media-url');
 const format=$<HTMLSelectElement>('#format'),itemSelect=$<HTMLSelectElement>('#media-item'),conversion=$<HTMLSelectElement>('#conversion');
 function state(label:string,message:string,options:{error?:boolean;progress?:number;working?:boolean}={}){
   $('#state-label').textContent=label;$('#status').textContent=message;$('#status').classList.toggle('error',Boolean(options.error));
+  $('#terminal-art').textContent=terminalIllustration(label);
   $('#indicator').hidden=!options.working;$('#indicator').textContent=progressBar(options.progress);
   const step=/ANALISANDO/.test(label)?1:/MÍDIA DISPONÍVEL/.test(label)?2:/PREPARANDO|TRANSFERINDO/.test(label)?3:/ARQUIVO PREPARADO|DOWNLOAD INICIADO/.test(label)?4:0;
   document.querySelectorAll<HTMLElement>('#pipeline [data-step]').forEach(node=>{node.classList.toggle('step-current',Number(node.dataset.step)===step);if(Number(node.dataset.step)===step)node.setAttribute('aria-current','step');else node.removeAttribute('aria-current');});

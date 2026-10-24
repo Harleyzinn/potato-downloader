@@ -208,3 +208,7 @@ O [Quick Tunnel da Cloudflare](https://developers.cloudflare.com/tunnel/get-star
 ## Licenças e créditos
 
 Código original do Potato: MIT, veja [LICENSE](LICENSE). yt-dlp: [Unlicense](https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE), executado como processo independente, sem binário no repositório. ffmpeg-static: [GPL-3.0-or-later e informações de distribuição](https://github.com/eugeneware/ffmpeg-static); as licenças dos binários e fontes correspondentes estão no projeto e na [distribuição ffmpeg](https://ffmpeg.org/legal.html). Cloudflared: [Apache-2.0](https://github.com/cloudflare/cloudflared/blob/master/LICENSE), ferramenta opcional de túnel instalada separadamente. Vite, TypeScript, ESLint e ipaddr.js mantêm seus avisos nos pacotes instalados. Consulte o lockfile para versões exatas. Não há código ou assets copiados do Cobalt.
+
+## Visual Terminal Edition (v2.3)
+
+A apresentação ganhou desenhos ASCII associados aos estados reais (aguardando, análise, mídia disponível, preparação, arquivo pronto, início pelo navegador, cancelamento e erro), ícones de caracteres nos modos, árvore de navegação, moldura de terminal, caixas `[ ]`/`[x]` e setas `[v]` nos seletores. Os controles continuam sendo HTML nativo, com rótulos, foco e teclado; as ilustrações ficam ocultas dos leitores de tela. Movimento reduzido é respeitado. Não há progresso ou conclusão simulados. Essa revisão altera a apresentação, sem trocar o motor, as regras de fontes ou os endereços publicados.
