@@ -12,7 +12,7 @@ import type {Analysis,Job} from '../src/types.ts';
 type Stored={analysis:Analysis;urls:string[];raw:RawMedia[]};
 type Task={job:Job;controller:AbortController;expiresAt:number;dir:string;file?:string;activeStreams:number};
 const analyses=new Map<string,Stored>(),jobs=new Map<string,Task>(),limits=new Map<string,{count:number;until:number}>();
-let active=0;
+let active=0,streams=0;
 const engineOK=()=>spawnSync(ytdlpPath,['--version'],{windowsHide:true,timeout:5000}).status===0 && spawnSync(ffmpegPath,['-version'],{windowsHide:true,timeout:5000}).status===0;
 const online=engineOK();
 await mkdir(config.tempRoot,{recursive:true});
@@ -61,6 +61,7 @@ const server=http.createServer(async(req,res)=>{
     }
     if(path==='/api/jobs' && req.method==='POST'){
       if(active>=config.maxConcurrent || jobs.size>=50)return send(429,{message:'Motor ocupado. Tente em instantes.'});
+      if(await dirSize(config.tempRoot)+config.maxBytes*(active+1)>config.maxDisk)return send(429,{message:'Armazenamento temporário ocupado. Tente novamente em 15 minutos.'});
       const data=await body(req),stored=analyses.get(String(data.analysisId));
       if(!stored || stored.analysis.expiresAt<Date.now())return send(410,{message:'A análise expirou. Analise o link novamente.'});
       const index=stored.analysis.items.findIndex(item=>item.id===data.itemId),media=stored.analysis.items[index];
@@ -107,10 +108,11 @@ const server=http.createServer(async(req,res)=>{
       if(req.method==='GET' && !match[2])return send(200,task.job);
       if(req.method==='GET' && match[2]){
         if(task.job.state!=='ready'||!task.file)return send(409,{message:'O arquivo ainda não está pronto.'});
+        if(streams>=4 || task.activeStreams>=2)return send(429,{message:'Muitas transferências simultâneas. Aguarde e tente novamente.'});
         const filename=task.job.filename||'potato.bin';
         const encoded=encodeURIComponent(filename).replace(/['()*]/g,c=>`%${c.charCodeAt(0).toString(16).toUpperCase()}`);
         res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':task.job.size,'Content-Disposition':`attachment; filename="potato${extname(task.file)}"; filename*=UTF-8''${encoded}`,'Cache-Control':'no-store'});
-        task.activeStreams++;const stream=createReadStream(task.file);stream.on('error',()=>res.destroy());stream.pipe(res);res.on('close',()=>{stream.destroy();task.activeStreams--;});return;
+        task.activeStreams++;streams++;const stream=createReadStream(task.file);stream.on('error',()=>res.destroy());stream.pipe(res);res.on('close',()=>{stream.destroy();task.activeStreams--;streams--;});return;
       }
     }
     return send(404,{message:'Rota não encontrada.'});
@@ -118,8 +120,17 @@ const server=http.createServer(async(req,res)=>{
 });
 server.requestTimeout=100000;server.headersTimeout=10000;
 const cleanup=setInterval(async()=>{
-  const now=Date.now();for(const[id,item]of analyses)if(item.analysis.expiresAt<now)analyses.delete(id);
-  for(const[id,task]of jobs)if(task.expiresAt<now && !task.activeStreams){task.controller.abort();await rm(task.dir,{recursive:true,force:true});jobs.delete(id);}
+  try{
+    const now=Date.now();for(const[id,item]of analyses)if(item.analysis.expiresAt<now)analyses.delete(id);
+    for(const[id,task]of jobs)if(task.expiresAt<now && !task.activeStreams){task.controller.abort();await rm(task.dir,{recursive:true,force:true,maxRetries:3,retryDelay:200});jobs.delete(id);}
+    // Recover expired orphan directories left behind by an abrupt process exit.
+    const tracked=new Set([...jobs.values()].map(task=>task.dir));
+    for(const entry of await readdir(config.tempRoot,{withFileTypes:true})){
+      if(!entry.isDirectory() || !/^job-[\w-]+$/.test(entry.name))continue;
+      const dir=join(config.tempRoot,entry.name);if(tracked.has(dir))continue;
+      if((await stat(dir)).mtimeMs<now-config.ttl)await rm(dir,{recursive:true,force:true,maxRetries:3,retryDelay:200});
+    }
+  }catch{/* Locked temporary files are retried at the next cleanup cycle. */}
 },30000);cleanup.unref();
 server.listen(config.port,config.host,()=>console.log(`Potato API http://${config.host}:${config.port} / engine ${online?'online':'offline'}`));
 async function shutdown(){for(const task of jobs.values())task.controller.abort();server.close();proxy.close();await Promise.all([...jobs.values()].map(task=>rm(task.dir,{recursive:true,force:true})));process.exit(0);}

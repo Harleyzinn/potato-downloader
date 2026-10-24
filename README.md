@@ -133,10 +133,10 @@ Plataformas habilitadas por allowlist: YouTube, Vimeo, TikTok, Instagram, SoundC
 - Somente HTTP/HTTPS, sem credenciais em URLs, IPs literais, redes locais ou portas especiais na entrada. Domínios de plataformas precisam corresponder à allowlist, incluindo fronteiras de subdomínio.
 - Todo tráfego do yt-dlp usa proxy privado em loopback que valida DNS de cada destino, rejeita IPs privados/reservados/mapeados e fixa o IP público no socket. Cada redirecionamento passa pela mesma verificação, reduzindo SSRF e rebinding.
 - Execução com argumentos, sem shell e sem argumentos fornecidos pelo cliente. Apenas IDs de formatos previamente analisados; caminhos locais controlados pelo servidor.
-- Limites de corpo, processos, saída JSON, tempo e arquivos. Watchdog de tamanho em disco e limpeza periódica/cancelamento. Arquivos não são carregados inteiros na memória do navegador.
+- Limites de corpo, processos, saída JSON, tempo e arquivos. Reserva de espaço antes de preparar trabalhos (512 MiB no total), até quatro streams e dois por arquivo. Watchdog de tamanho em disco e limpeza periódica/cancelamento. Arquivos não são carregados inteiros na memória do navegador.
 - IDs aleatórios de análise/trabalho funcionam como capacidades temporárias. Não compartilhe links de arquivos que queira manter privados. Não são persistidos no navegador nem publicados no repositório.
 - O limitador é por IP da conexão; por um túnel todos podem compartilhar o limite. Para maior escala, implemente uma política na borda e isolamento de rede/contêiner; CORS não substitui autenticação nem controle de abuso.
-- Não registra URLs, títulos ou erros brutos do extrator. Metadados ficam em memória até expirar e arquivos temporários no servidor até 15 min. Um encerramento forçado do sistema pode deixar temporários; o administrador deve manter a limpeza da pasta temporária do sistema. O Compose usa tmpfs.
+- Não registra URLs, títulos ou erros brutos do extrator. Metadados ficam em memória até expirar e arquivos temporários no servidor até 15 min. A limpeza periódica também remove diretórios órfãos expirados após reiniciar o motor; arquivos bloqueados são tentados novamente no próximo ciclo. O Compose usa tmpfs.
 
 ## Checks e testes
 
