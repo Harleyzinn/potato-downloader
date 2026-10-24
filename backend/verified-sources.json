@@ -1,0 +1,8 @@
+[
+  {"name":"YouTube","date":"2026-10-24","version":"2026.10.21","scope":"Vídeo público da Blender Foundation; análise, MP4 144p com áudio e transferência real pela API (35.624.855 bytes)."},
+  {"name":"Wikimedia Commons","date":"2026-10-24","version":"2026.10.21","scope":"Áudio OGG convertido para MP3 e baixado pelo Pages; vídeo WebM de 23 s preparado e transferido pela API."},
+  {"name":"Arquivo de áudio direto (HTTPS)","date":"2026-10-24","version":"2026.10.21","scope":"OGG público do Wikimedia: inspeção do cabeçalho, análise genérica, conversão e transferência de MP3 de 74.383 bytes."},
+  {"name":"Arquivo de vídeo direto (HTTPS)","date":"2026-10-24","version":"2026.10.21","scope":"Trecho Big Buck Bunny servido pelo W3Schools: análise genérica, MP4 de 788.493 bytes transferido; áudio AAC e vídeo H.264 decodificados."},
+  {"name":"HLS público sob demanda","date":"2026-10-24","version":"2026.10.21","scope":"Manifesto público Big Buck Bunny de teste da Mux; variante 184p preparada pelo downloader nativo, MP4 de 20.049.873 bytes transferido."},
+  {"name":"DASH público sob demanda","date":"2026-10-24","version":"2026.10.21","scope":"Manifesto público Big Buck Bunny de teste da Akamai; faixa de vídeo 180p unida ao áudio no FFmpeg, MP4 de 21.210.203 bytes transferido."}
+]

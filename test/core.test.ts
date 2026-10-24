@@ -6,17 +6,41 @@ import {validateURL} from '../src/service.ts';
 import {progressBar} from '../src/components.ts';
 import net from 'node:net';
 import http from 'node:http';
+import {parseExtractors,groupSources} from '../backend/catalog.ts';
+import {readPublicPrefix} from '../backend/probe.ts';
 
 test('blocks private, reserved and mapped IPv4/IPv6 destinations',()=>{
   for(const value of ['127.0.0.1','10.0.0.1','169.254.169.254','172.16.0.1','192.168.0.1','100.64.0.1','0.0.0.0','224.0.0.1','::1','::ffff:127.0.0.1','fe80::1','fc00::1','2001:db8::1'])assert.equal(isPublicIP(value),false,value);
   assert.equal(isPublicIP('1.1.1.1'),true);
   assert.equal(isPublicIP('2606:4700:4700::1111'),true);
 });
-test('validates protocols, ports, credentials and exact source host boundaries',()=>{
+test('accepts public source discovery beyond curated platforms and blocks dangerous URL syntax',()=>{
   for(const url of ['file:///etc/passwd','http://127.0.0.1','http://[::1]','https://localhost','https://test.local','https://user:pass@vimeo.com/1','https://vimeo.com:9000/1'])assert.throws(()=>parsePublicURL(url));
-  assert.throws(()=>validateSource('https://youtube.com.attacker.net/video'));
-  assert.throws(()=>validateSource('https://example.org/video'));
+  assert.equal(validateSource('https://media.public-source.org/video.mp4').pathname,'/video.mp4');
+  assert.equal(validateSource('https://cdn.public-source.org/vod/index.m3u8').protocol,'https:');
   assert.equal(validateSource('https://www.youtube.com/watch?v=123').hostname,'www.youtube.com');
+});
+
+test('catalog distinguishes installed, broken and verified instead of assuming site availability',()=>{
+  const extractors=parseExtractors('youtube\nPornHub\nXVideos (CURRENTLY BROKEN)\ngeneric\n');
+  assert.equal(extractors.length,4);assert.equal(extractors[2].broken,true);
+  const groups=groupSources(extractors);
+  assert.equal(groups.find(x=>x.name==='Pornhub')?.installed,true);
+  assert.equal(groups.find(x=>x.name==='XVideos')?.installed,false);
+  assert.equal(groups.find(x=>x.category==='direct')?.installed,true);
+});
+
+test('bounded direct-file probe rejects local and credential URLs before opening a socket',async()=>{
+  for(const url of ['http://127.0.0.1/private','http://[::1]/','file:///etc/passwd','https://user:pass@public.org/a.mp4'])await assert.rejects(readPublicPrefix(url,new AbortController().signal));
+});
+
+test('native VOD formats are offered, while DRM, authentication and RTSP are rejected',()=>{
+  const data=mediaOptions({extractor_key:'Generic',formats:[{format_id:'hls-360',protocol:'m3u8_native',vcodec:'h264',acodec:'aac',ext:'mp4',height:360},{format_id:'dash-a',protocol:'http_dash_segments',vcodec:'none',acodec:'aac',ext:'m4a'},{format_id:'rtsp',protocol:'rtsp',vcodec:'h264',acodec:'aac'}]},'id');
+  assert.equal(data.source,'Generic');assert.equal(data.formats.length,3);
+  assert.throws(()=>mediaOptions({has_drm:true},'id'));
+  assert.throws(()=>mediaOptions({availability:'needs_auth'},'id'));
+  assert.match(publicError('DRM'),/protegida/);
+  assert.match(publicError('Transmissões ao vivo'),/sob demanda/);
 });
 test('forward proxy blocks redirect-like requests and CONNECT to private targets',async()=>{
   const proxy=createEgressProxy();await new Promise<void>(done=>proxy.listen(0,'127.0.0.1',done));const addr=proxy.address();assert.ok(addr&&typeof addr!=='string');

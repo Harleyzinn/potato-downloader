@@ -7,10 +7,12 @@ import type {Format,Media} from '../src/types.ts';
 const require=createRequire(import.meta.url);
 export const ffmpegPath=process.env.FFMPEG_PATH || require('ffmpeg-static') as string;
 export const ytdlpPath=process.env.YTDLP_PATH || (existsSync(resolve('.runtime/yt-dlp.exe')) ? resolve('.runtime/yt-dlp.exe') : 'yt-dlp');
-type RawFormat={format_id?:string;ext?:string;vcodec?:string;acodec?:string;height?:number;abr?:number;filesize?:number;filesize_approx?:number;protocol?:string;has_drm?:boolean};
-export type RawMedia=RawFormat&{id?:string;title?:string;uploader?:string;creator?:string;duration?:number;formats?:RawFormat[];entries?:RawMedia[];webpage_url?:string;original_url?:string;url?:string;is_live?:boolean};
+type RawFormat={format_id?:string;ext?:string;vcodec?:string;acodec?:string;height?:number;abr?:number;filesize?:number;filesize_approx?:number;protocol?:string;has_drm?:boolean;url?:string};
+export type RawMedia=RawFormat&{id?:string;title?:string;uploader?:string;creator?:string;duration?:number;formats?:RawFormat[];entries?:RawMedia[];webpage_url?:string;original_url?:string;url?:string;is_live?:boolean;live_status?:string;availability?:string;extractor_key?:string;extractor?:string};
 export function mediaOptions(raw:RawMedia,id:string):Media {
   if(raw.is_live)throw new Error('Transmissões ao vivo não são suportadas.');
+  if(raw.has_drm)throw new Error('DRM');
+  if(['private','premium_only','subscriber_only','needs_auth'].includes(raw.availability||''))throw new Error('private or restricted media');
   if((raw.duration||0)>1200)throw new Error('O limite desta instância é de 20 minutos por mídia.');
   const formats:Format[]=[];
   const available=(raw.formats || [raw]).filter(f=>!f.has_drm && ['http','https','m3u8_native','http_dash_segments'].includes(f.protocol||'https') && /^[\w.-]+$/.test(f.format_id||'') && (f.filesize||f.filesize_approx||0)<=100*1024*1024);
@@ -26,10 +28,13 @@ export function mediaOptions(raw:RawMedia,id:string):Media {
     if(f.acodec && f.acodec!=='none')formats.push({id:`a:${f.format_id}`,mode:'audio',label:`Áudio de ${f.ext||'original'}${f.abr ? ` / ${Math.round(f.abr)} kbps` : ''}`,ext:f.ext||'m4a',size,estimated:!f.filesize});
   }
   if(!formats.length)throw new Error('Nenhum formato público compatível. A mídia pode estar restrita.');
-  return {id,title:String(raw.title || 'Potato download').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,formats:formats.reverse().slice(0,100)};
+  return {id,title:String(raw.title || 'Potato download').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,source:String(raw.extractor_key||raw.extractor||'generic').slice(0,100),formats:formats.reverse().slice(0,100)};
 }
 export function publicError(text:string):string {
+  if(/Transmissões ao vivo/.test(text))return 'Este motor aceita streams sob demanda (VOD), mas não grava transmissões ao vivo.';
+  if(/DRM|encrypted|protected/i.test(text))return 'Mídia protegida ou criptografada sem suporte. Não é possível processá-la nesta instância.';
   if(/private|login|sign in|members.only|age.restrict|403|restricted|not available in your country/i.test(text))return 'Conteúdo privado ou restrito. Use um link público que permita download.';
+  if(/format.*not available|Nenhum formato/i.test(text))return 'Nenhum formato público compatível. Confira o link ou tente outro arquivo.';
   if(/404|removed|not found|unavailable/i.test(text))return 'Conteúdo removido ou indisponível. Confira o link.';
   if(/429|too many|rate.limit/i.test(text))return 'A plataforma limitou os pedidos. Tente novamente mais tarde.';
   if(/format.*not available/i.test(text))return 'Este formato não está mais disponível. Analise o link novamente.';
@@ -39,7 +44,7 @@ export function publicError(text:string):string {
   return 'Não foi possível processar a mídia. Tente outro link público ou novamente mais tarde.';
 }
 export function launch(args:string[],proxy:string,signal:AbortSignal,onLine?:(line:string)=>void):{child:ChildProcess;result:Promise<string>} {
-  const child=spawn(ytdlpPath,['--ignore-config','--no-plugin-dirs','--js-runtimes',`node:${process.execPath}`,'--no-cache-dir','--no-cookies','--no-playlist','--playlist-end','8','--socket-timeout','20','--retries','1','--fragment-retries','1','--proxy',proxy,'--ffmpeg-location',ffmpegPath,...args],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,NO_PROXY:'',no_proxy:''}});
+  const child=spawn(ytdlpPath,['--ignore-config','--no-plugin-dirs','--xff','never','--js-runtimes',`node:${process.execPath}`,'--no-cache-dir','--no-cookies','--no-playlist','--playlist-end','8','--socket-timeout','20','--retries','1','--fragment-retries','1','--proxy',proxy,'--ffmpeg-location',ffmpegPath,...args],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,NO_PROXY:'',no_proxy:''}});
   const result=new Promise<string>((done,fail)=>{
     let out='',err='',pending='';let settled=false;
     const stop=()=>{

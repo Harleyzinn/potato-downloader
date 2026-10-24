@@ -3,32 +3,21 @@ import http from 'node:http';
 import net from 'node:net';
 import ipaddr from 'ipaddr.js';
 
-export const platforms = [
-  {name:'YouTube', hosts:['youtube.com','youtu.be']},
-  {name:'Vimeo', hosts:['vimeo.com']},
-  {name:'TikTok', hosts:['tiktok.com']},
-  {name:'Instagram', hosts:['instagram.com']},
-  {name:'SoundCloud', hosts:['soundcloud.com']},
-  {name:'Reddit', hosts:['reddit.com','redd.it']},
-  {name:'X / Twitter', hosts:['x.com','twitter.com']},
-  {name:'Internet Archive', hosts:['archive.org']},
-  {name:'Wikimedia Commons', hosts:['commons.wikimedia.org','upload.wikimedia.org']},
-];
 export function isPublicIP(value:string):boolean {
   try {return ipaddr.process(value).range()==='unicast';} catch {return false;}
 }
 export function parsePublicURL(value:unknown):URL {
   if(typeof value!=='string' || value.length>4096) throw new Error('Informe um link válido com https://.');
   let url:URL;try{url=new URL(value);}catch{throw new Error('Informe um link válido com https://.');}
-  if(!['http:','https:'].includes(url.protocol) || url.username || url.password || !['','80','443'].includes(url.port)) throw new Error('Use HTTP ou HTTPS, sem credenciais ou portas especiais.');
+  if(!['http:','https:'].includes(url.protocol) || url.username || url.password || url.port) throw new Error('Use HTTP ou HTTPS, sem credenciais ou portas especiais.');
   const host=url.hostname.toLowerCase();
   if(!host.includes('.') || ['.local','.localhost','.internal','.test','.invalid','.example'].some(s=>host.endsWith(s)) || ipaddr.isValid(host.replace(/^\[|\]$/g,''))) throw new Error('Endereços locais e IPs não são permitidos.');
   return url;
 }
 export function validateSource(value:unknown):URL {
-  const url=parsePublicURL(value);
-  if(!platforms.some(p=>p.hosts.some(h=>url.hostname===h || url.hostname.endsWith(`.${h}`)))) throw new Error('Plataforma incompatível. Consulte a lista de plataformas habilitadas.');
-  return url;
+  // Source discovery belongs to the installed extractor engine, not a static host list.
+  // Every outbound request still crosses the DNS-pinning egress boundary below.
+  return parsePublicURL(value);
 }
 export async function resolvePublic(host:string):Promise<{address:string;family:number}> {
   const name=host.replace(/^\[|\]$/g,'');

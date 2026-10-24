@@ -28,7 +28,7 @@ yt-dlp -> proxy local com validação e pinagem DNS -> plataforma pública
 arquivo temporário -> streaming HTTP -> navegador
 ```
 
-Vite + TypeScript sem framework de UI: componentes pequenos de apresentação, serviço tipado, preferências e estado separados. A API não é um proxy genérico de arquivos: aceita apenas uma lista de plataformas, guarda opções retornadas pelo extrator e permite escolher apenas essas opções. O navegador não recebe comandos de execução nem decide caminhos de arquivos.
+Vite + TypeScript sem framework de UI: componentes pequenos de apresentação, serviço tipado, preferências e estado separados. O yt-dlp detecta automaticamente a fonte pelo link HTTP/HTTPS e escolhe um extrator específico ou genérico. A API guarda as opções extraídas e aceita apenas esses IDs na preparação; não expõe um endpoint que encaminhe cegamente um destino arbitrário. O navegador não recebe comandos de execução nem decide caminhos de arquivos.
 
 O backend usa o contrato documentado de `yt-dlp`: `--dump-single-json`, seleção `-f`, `--progress-template`, extração de áudio e arquivos locais. Nenhuma API pública de terceiros é presumida. O Cobalt foi pesquisado inicialmente e descartado; não é dependência deste projeto. [Documentação do yt-dlp](https://github.com/yt-dlp/yt-dlp#readme), [sites suportados pelo extrator](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), [ffmpeg](https://ffmpeg.org/documentation.html), [GitHub Pages com Actions](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
@@ -126,12 +126,41 @@ O backend permite a origem exata `https://harleyzinn.github.io` (a origem não i
 - 100 MiB por trabalho, 20 minutos por mídia, 2 processos simultâneos, 90 s de análise e 8 min de preparação, retenção de até 15 min. Conversão pode ultrapassar tamanho e ser cancelada.
 - Preferências locais, restauração de padrões, movimento reduzido e navegação por teclado. Sem histórico.
 
-Plataformas habilitadas por allowlist: YouTube, Vimeo, TikTok, Instagram, SoundCloud, Reddit, X/Twitter, Internet Archive e Wikimedia Commons. Elas usam os extratores do yt-dlp e podem falhar por mudanças da origem, bloqueios, região, autenticação ou ausência de formatos. **Wikimedia Commons e YouTube tiveram downloads reais verificados com mídia pública. As demais não são garantidas por este teste.** A interface consulta a lista do servidor.
+### Cobertura ampliada (v2.1)
+
+A lista fixa de nove domínios foi substituída pela descoberta do **yt-dlp instalado**. O endpoint `/api/compatibility` consulta `--list-extractors` e `--version` ao iniciar o backend. Nesta instalação: **1.755 extratores**, dos quais **136** se declaram `CURRENTLY BROKEN`. Isso é uma contagem de extratores, não de sites funcionando.
+
+A tela ASCII **[04] fontes** tem pesquisa, grupos de vídeo/redes/áudio/adultos, indicação de extratores quebrados e um registro separado de downloads reais. Inclui YouTube, Vimeo, Dailymotion, Twitch, Bilibili, PeerTube, TikTok, Instagram, X, Reddit, Facebook, Bluesky, SoundCloud, Bandcamp, Mixcloud, Audiomack, Pornhub, XVideos e muitos outros que constam do inventário instalado. Pornhub e XVideos estão **listados, mas não foram testados com download real**; autenticação, verificação de idade, região e bloqueios podem impedir o uso. Nenhuma senha ou cookie de conta é solicitado, importado ou salvo.
+
+Páginas genéricas, **arquivos HTTP/HTTPS diretos**, **HLS (`.m3u8`) e DASH (`.mpd`) sob demanda** são aceitos quando o extrator genérico e o downloader nativo encontram formatos compatíveis. Não é preciso editar uma lista de domínios para cada nova fonte. Não há suporte a `file://`, RTMP/RTSP, DRM ou gravação ao vivo. Galerias mostram até oito entradas com formatos válidos; fotos ou entradas sem formatos não são inventadas. Uma galeria pode retornar apenas os itens compatíveis.
+
+Arquivos diretos sem metadados de codec têm até **4 MiB** iniciais lidos pelo backend (inclusive se a origem ignorar Range). Os redirecionamentos são revalidados e o IP público é fixado no socket. O FFmpeg inspeciona somente o cabeçalho local, com demuxer fixo e rede desativada para essa inspeção. Arquivos que precisam de um cabeçalho fora desse limite, como alguns MP4 com `moov` no final, podem ser recusados. Não se presume que a extensão do arquivo prova que existem áudio ou vídeo.
+
+**Listado** = extrator presente na ferramenta, sem garantia de acesso. **Quebrado** = sinalizado pela própria ferramenta. **Testado** = mídia, versão e escopo registrados em `backend/verified-sources.json`, após download e transferência reais. Testes antigos mantêm sua versão original mesmo após atualizar o motor. Consulte [a lista oficial e suas ressalvas](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) e [VERIFICATION.md](VERIFICATION.md).
+
+### Atualizar o motor sem reescrever a interface
+
+Para o executável oficial instalado no Windows:
+
+```sh
+npm run engine:update
+```
+
+Depois, reinicie o backend. O inventário da interface vem da API e acompanha a nova versão automaticamente. Não é necessário reconstruir o frontend; registre novos testes somente após fazê-los de verdade. Para uma instalação Python, atualize `yt-dlp[default]` no ambiente virtual. O script de atualização não aceita parâmetros enviados por visitantes nem executa plugins.
+
+No Docker, substitua a versão pela release oficial que deseja instalar:
+
+```sh
+docker compose build --build-arg YTDLP_VERSION=2026.10.21
+docker compose up -d
+```
+
+O argumento de build mantém a versão reproduzível; não usa atualizações silenciosas em cada requisição. As opções usadas são documentadas no [README oficial](https://github.com/yt-dlp/yt-dlp#usage-and-options). A configuração local e os diretórios de plugins são ignorados; não são ativados `.netrc`, login, cookies de navegador, falsificação de região ou download de componentes remotos.
 
 ## Segurança e privacidade
 
-- Somente HTTP/HTTPS, sem credenciais em URLs, IPs literais, redes locais ou portas especiais na entrada. Domínios de plataformas precisam corresponder à allowlist, incluindo fronteiras de subdomínio.
-- Todo tráfego do yt-dlp usa proxy privado em loopback que valida DNS de cada destino, rejeita IPs privados/reservados/mapeados e fixa o IP público no socket. Cada redirecionamento passa pela mesma verificação, reduzindo SSRF e rebinding.
+- Somente HTTP/HTTPS, sem credenciais em URLs, IPs literais, redes locais ou portas especiais na entrada. A descoberta ampla de domínios continua subordinada à barreira de rede; um hostname arbitrário não autoriza acesso a uma rede interna.
+- Todo tráfego do yt-dlp usa proxy privado em loopback que valida DNS de cada destino, rejeita IPs privados/reservados/mapeados e fixa o IP público no socket. Cada redirecionamento passa pela mesma verificação, reduzindo SSRF e rebinding. A leitura limitada de cabeçalho usa a mesma validação e pinagem, com até cinco redirecionamentos, timeout e limite de bytes próprios. FFmpeg não recebe URLs na inspeção de cabeçalhos.
 - Execução com argumentos, sem shell e sem argumentos fornecidos pelo cliente. Apenas IDs de formatos previamente analisados; caminhos locais controlados pelo servidor.
 - Limites de corpo, processos, saída JSON, tempo e arquivos. Reserva de espaço antes de preparar trabalhos (512 MiB no total), até quatro streams e dois por arquivo. Watchdog de tamanho em disco e limpeza periódica/cancelamento. Arquivos não são carregados inteiros na memória do navegador.
 - IDs aleatórios de análise/trabalho funcionam como capacidades temporárias. Não compartilhe links de arquivos que queira manter privados. Não são persistidos no navegador nem publicados no repositório.
@@ -150,7 +179,13 @@ npm run build
 
 Testes cobrem IPs privados/reservados e IPv6 mapeado, proxy HTTP/CONNECT, fronteiras de domínio, metadados/formatos/DRM, sanitização, mensagens e progresso. O teste real usa [File:Example.ogg no Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Example.ogg), mídia pública com licença indicada na página original. A fonte foi analisada e convertida para MP3 e o arquivo resultante foi transferido pelo navegador a partir do Pages (74.383 bytes). Também foi baixado um vídeo WebM de 240p do [trecho Big Buck Bunny, Blender Foundation, CC BY 3.0](https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_first_23_seconds_1080p.ogv) (957.029 bytes). Mídias de teste não são redistribuídas no repositório. Esses testes não comprovam disponibilidade de todas as plataformas.
 
-Verificação do Pages: workflow de checks e deploy concluído com sucesso; assets carregados no subcaminho correto; análise, seleção real de formato, conversão e download MP3 feitos pela origem publicada; preferências salvas, recarregadas e restauradas; navegação por teclado conferida. Sem rolagem horizontal nas larguras de 390 e 1280 px. Requisições de origem não autorizada receberam 403; plataforma fora da lista foi rejeitada. Um filme oficial da Blender Foundation no YouTube também foi baixado pela API e inspecionado com ffmpeg: MP4 de 35.624.855 bytes com vídeo AV1 144p e áudio AAC. Consulte também [VERIFICATION.md](VERIFICATION.md). Docker não foi executado neste ambiente Windows.
+Verificação da primeira publicação: workflow de checks e deploy concluído com sucesso; assets carregados no subcaminho correto; análise, seleção real de formato, conversão e download MP3 feitos pela origem publicada; preferências salvas, recarregadas e restauradas; navegação por teclado conferida. Sem rolagem horizontal nas larguras de 390 e 1280 px. Requisições de origem não autorizada receberam 403. Um filme oficial da Blender Foundation no YouTube também foi baixado pela API e inspecionado com ffmpeg: MP4 de 35.624.855 bytes com vídeo AV1 144p e áudio AAC. A versão 2.1 remove a antiga allowlist e acrescenta os testes descritos em [VERIFICATION.md](VERIFICATION.md). Docker não foi executado neste ambiente Windows.
+
+### Hospedagem, tráfego e políticas
+
+O frontend no Pages é estático. Extração, inspeção e conversão executam neste computador com Node/yt-dlp/FFmpeg. Cada análise tem 90 s; preparação, 8 min; download final usa streaming, sem mantê-lo inteiro no navegador. São dois processos e quatro transferências simultâneas; as faixas originais de vídeo e áudio e a conversão podem aumentar o tráfego em relação ao arquivo final. O projeto não inclui tráfego ilimitado nem provisiona hospedagem paga.
+
+O [Quick Tunnel da Cloudflare](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) é temporário, sem garantia de uptime, até 200 requisições em voo, sem SSE e com hostname diferente a cada inicialização. O Potato usa polling curto, não SSE; seus próprios limites são mais baixos. O túnel não é hospedagem permanente ou um compromisso de aceitação de qualquer conteúdo. Aplicam-se os [termos do serviço](https://www.cloudflare.com/website-terms/), incluindo restrições de abuso e acesso não autorizado. Para serviço contínuo e tráfego de mídia, instale o backend em hospedagem compatível com processos nativos e com a política aplicável ao seu uso. Nenhum plano novo ou cobrança foi criado nesta entrega.
 
 ## Licenças e créditos
 

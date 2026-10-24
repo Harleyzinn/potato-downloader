@@ -3,6 +3,7 @@ import type {Analysis,Media,Mode,Job} from './types.ts';
 import {element as $,asciiTitle,bytes,duration,progressBar} from './components.ts';
 import {apiBase,analyze,getHealth,getJob,request,validateURL} from './service.ts';
 import {defaults,loadPreferences,savePreferences} from './preferences.ts';
+import {refreshCatalog} from './catalog.ts';
 
 let prefs=loadPreferences(),analysis:Analysis|undefined,abort:AbortController|undefined,jobId:string|undefined;
 let busy=false,poll:ReturnType<typeof setTimeout>|undefined,generation=0;
@@ -12,10 +13,12 @@ const format=$<HTMLSelectElement>('#format'),itemSelect=$<HTMLSelectElement>('#m
 function state(label:string,message:string,options:{error?:boolean;progress?:number;working?:boolean}={}){
   $('#state-label').textContent=label;$('#status').textContent=message;$('#status').classList.toggle('error',Boolean(options.error));
   $('#indicator').hidden=!options.working;$('#indicator').textContent=progressBar(options.progress);
+  const step=/ANALISANDO/.test(label)?1:/MÍDIA DISPONÍVEL/.test(label)?2:/PREPARANDO|TRANSFERINDO/.test(label)?3:/ARQUIVO PREPARADO|DOWNLOAD INICIADO/.test(label)?4:0;
+  document.querySelectorAll<HTMLElement>('#pipeline [data-step]').forEach(node=>{node.classList.toggle('step-current',Number(node.dataset.step)===step);if(Number(node.dataset.step)===step)node.setAttribute('aria-current','step');else node.removeAttribute('aria-current');});
 }
 function lock(value:boolean){busy=value;$<HTMLButtonElement>('#analyze-button').disabled=value;$<HTMLButtonElement>('#prepare').disabled=value;input.disabled=value;$<HTMLButtonElement>('#paste').disabled=value;$<HTMLButtonElement>('#clear').disabled=value;$('#media-panel').inert=value;$('#cancel').hidden=!value;}
 function resetResults(){analysis=undefined;$('#media-panel').hidden=true;$('#save-file').hidden=true;$('#transfer-note').hidden=true;$('#retry').hidden=true;}
-function navigate(){const page=['baixar','ajustes','ajuda'].includes(location.hash.slice(1))?location.hash.slice(1):'baixar';document.querySelectorAll<HTMLElement>('.page').forEach(node=>node.hidden=node.id!==page);document.querySelectorAll<HTMLAnchorElement>('[data-page]').forEach(node=>{if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});$('#breadcrumb').textContent=`~/potato/${page}`;document.title=`Potato Downloader / ${page}`;}
+function navigate(){const page=['baixar','ajustes','ajuda','fontes'].includes(location.hash.slice(1))?location.hash.slice(1):'baixar';document.querySelectorAll<HTMLElement>('.page').forEach(node=>node.hidden=node.id!==page);document.querySelectorAll<HTMLAnchorElement>('[data-page]').forEach(node=>{if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});$('#breadcrumb').textContent=`~/potato/${page}`;document.title=`Potato Downloader / ${page}`;}
 window.addEventListener('hashchange',navigate);navigate();
 function preferenceUI(){
   $<HTMLSelectElement>('#pref-mode').value=prefs.mode;$<HTMLSelectElement>('#pref-quality').value=prefs.quality;$<HTMLSelectElement>('#pref-audio').value=prefs.audioFormat;$<HTMLInputElement>('#pref-motion').checked=prefs.reducedMotion;document.body.classList.toggle('no-motion',prefs.reducedMotion);
@@ -30,6 +33,7 @@ async function health(){
     const data=await getHealth();if(!data.online)throw new Error('O serviço respondeu, mas yt-dlp ou ffmpeg não está disponível.');
     $('#health-button').textContent='[*] motor conectado';$('#platform-list').replaceChildren();
     for(const name of data.platforms){const span=document.createElement('span');span.className='chip';span.textContent=name;$('#platform-list').append(span);}
+    void refreshCatalog();
     $('#service-notice').hidden=!data.temporary;
     $('#service-notice').textContent='[!] Motor temporário: funciona enquanto o computador e o túnel estiverem ligados. Os links não são armazenados no navegador.';
   }catch(error){$('#health-button').textContent='[!] motor desconectado';$('#platform-list').textContent='Lista indisponível até conectar o motor.';$('#service-notice').hidden=false;$('#service-notice').textContent=`[!] ${error instanceof Error?error.message:'Motor indisponível.'} O frontend está pronto; downloads precisam do serviço conectado.`;}
@@ -58,7 +62,7 @@ function updateSize(){
 function renderMedia(){
   const media=currentMedia();if(!media)return;
   $('#media-title').textContent=media.title;
-  $('#media-metadata').textContent=[media.author?`Autoria: ${media.author}`:'',media.duration?`Duração: ${duration(media.duration)}`:''].filter(Boolean).join(' / ')||'A origem não informou autoria ou duração.';
+  $('#media-metadata').textContent=[media.source?`[>] Extrator: ${media.source}`:'',media.author?`Autoria: ${media.author}`:'',media.duration?`Duração: ${duration(media.duration)}`:''].filter(Boolean).join(' / ')||'A origem não informou autoria ou duração.';
   document.querySelectorAll<HTMLInputElement>('[name=mode]').forEach(radio=>{radio.disabled=radio.value!=='auto'&&!media.formats.some(f=>f.mode===radio.value);radio.checked=radio.value===prefs.mode;});
   if($<HTMLInputElement>('[name=mode]:checked').disabled)$<HTMLInputElement>('[name=mode][value=auto]').checked=true;
   updateFormats();

@@ -5,7 +5,9 @@ import {createReadStream} from 'node:fs';
 import {join,extname} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {config} from './config.ts';
-import {createEgressProxy,validateSource,sanitizeFilename,platforms,resolvePublic} from './security.ts';
+import {createEgressProxy,validateSource,sanitizeFilename,resolvePublic} from './security.ts';
+import {readCompatibility} from './catalog.ts';
+import {probeUnknownFormats} from './probe.ts';
 import {launch,mediaOptions,publicError,ytdlpPath,ffmpegPath,type RawMedia} from './engine.ts';
 import type {Analysis,Job} from '../src/types.ts';
 
@@ -15,6 +17,7 @@ const analyses=new Map<string,Stored>(),jobs=new Map<string,Task>(),limits=new M
 let active=0,streams=0;
 const engineOK=()=>spawnSync(ytdlpPath,['--version'],{windowsHide:true,timeout:5000}).status===0 && spawnSync(ffmpegPath,['-version'],{windowsHide:true,timeout:5000}).status===0;
 const online=engineOK();
+const compatibility=readCompatibility();
 await mkdir(config.tempRoot,{recursive:true});
 const proxy=createEgressProxy();await new Promise<void>(done=>proxy.listen(0,'127.0.0.1',done));
 const addr=proxy.address();if(!addr || typeof addr==='string')throw new Error('Proxy unavailable');
@@ -34,7 +37,8 @@ const server=http.createServer(async(req,res)=>{
   res.setHeader('Access-Control-Allow-Methods','GET, POST, DELETE, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type');
   if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
   const path=(req.url||'/').split('?')[0];
-  if(path==='/api/health' && req.method==='GET')return send(200,{online,engine:'yt-dlp + ffmpeg',platforms:platforms.map(p=>p.name),limits:{maxBytes:config.maxBytes,maxDuration:config.maxDuration},temporary:config.temporary});
+  if(path==='/api/health' && req.method==='GET')return send(200,{online,engine:`yt-dlp ${compatibility.version} + ffmpeg`,platforms:compatibility.groups.filter(p=>p.installed).map(p=>p.name),limits:{maxBytes:config.maxBytes,maxDuration:config.maxDuration},temporary:config.temporary});
+  if(path==='/api/compatibility' && req.method==='GET')return send(200,compatibility);
   const ip=req.socket.remoteAddress||'unknown';
   if(req.method==='POST'){
     const now=Date.now();for(const [key,v]of limits)if(v.until<now)limits.delete(key);
@@ -53,8 +57,9 @@ const server=http.createServer(async(req,res)=>{
       try{
         const output=await launch(['--dump-single-json','--skip-download','--',url.href],proxyURL,controller.signal).result;
         const raw=JSON.parse(output) as RawMedia;
+        await probeUnknownFormats(raw,controller.signal);
         const entries=(raw.entries||[raw]).slice(0,8);const items:Analysis['items']=[],urls:string[]=[],valid:RawMedia[]=[];
-        for(const entry of entries){const source=validateSource(entry.webpage_url||entry.original_url||url.href);const media=mediaOptions(entry,randomUUID());items.push(media);urls.push(source.href);valid.push(entry);}
+        for(const entry of entries){const source=validateSource(entry.webpage_url||entry.original_url||url.href);try{const media=mediaOptions(entry,randomUUID());items.push(media);urls.push(source.href);valid.push(entry);}catch(error){if(entries.length===1)throw error;}}
         if(!items.length)throw new Error('No formats');
         const analysis:Analysis={id:randomUUID(),items,expiresAt:Date.now()+config.ttl};analyses.set(analysis.id,{analysis,urls,raw:valid});return send(200,analysis);
       }catch(error){return send(controller.signal.aborted?408:422,{message:controller.signal.aborted?'Análise cancelada ou tempo limite atingido.':publicError(String(error))});}
