@@ -47,6 +47,7 @@ const server=http.createServer(async(req,res)=>{
       if(active>=config.maxConcurrent)return send(429,{message:'Motor ocupado. Tente em instantes.'});
       if(analyses.size>=100)return send(429,{message:'Instância ocupada. Tente mais tarde.'});
       const data=await body(req);const url=validateSource(data.url);await resolvePublic(url.hostname);
+      if(active>=config.maxConcurrent)return send(429,{message:'Motor ocupado. Tente em instantes.'});
       const controller=new AbortController();const timer=setTimeout(()=>controller.abort('timeout'),90000);
       const disconnected=()=>{if(!res.writableEnded)controller.abort();};res.on('close',disconnected);active++;
       try{
@@ -70,6 +71,8 @@ const server=http.createServer(async(req,res)=>{
       const conversion=String(data.conversion||'original');
       if(!['original','mp3','opus','wav'].includes(conversion) || (format.mode!=='audio' && conversion!=='original'))return send(400,{message:'Conversão indisponível para este formato.'});
       const id=randomUUID(),dir=await mkdtemp(join(config.tempRoot,'job-')),controller=new AbortController();
+      const used=await dirSize(config.tempRoot);
+      if(active>=config.maxConcurrent || used+config.maxBytes*config.maxConcurrent>config.maxDisk){await rm(dir,{recursive:true,force:true});return send(429,{message:'Motor ou armazenamento ocupado. Tente novamente em instantes.'});}
       const task:Task={job:{id,state:'preparing'},dir,controller,expiresAt:Date.now()+config.ttl,activeStreams:0};jobs.set(id,task);active++;
       const sourceId=format.id.slice(2);
       const rawFormat=stored.raw[index].formats?.find(f=>f.format_id===sourceId);
