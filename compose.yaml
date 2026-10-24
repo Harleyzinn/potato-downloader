@@ -1,0 +1,15 @@
+services:
+  potato-engine:
+    build: .
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      ALLOWED_ORIGINS: https://harleyzinn.github.io,http://127.0.0.1:5173,http://localhost:5173
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 100
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777

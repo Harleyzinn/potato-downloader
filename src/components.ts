@@ -1,0 +1,6 @@
+const glyphs:Record<string,string[]>={P:['#### ','#   #','#### ','#    ','#    '],O:[' ### ','#   #','#   #','#   #',' ### '],T:['#####','  #  ','  #  ','  #  ','  #  '],A:[' ### ','#   #','#####','#   #','#   #'],D:['#### ','#   #','#   #','#   #','#### '],W:['#   #','#   #','# # #','## ##','#   #'],N:['#   #','##  #','# # #','#  ##','#   #'],L:['#    ','#    ','#    ','#    ','#####'],E:['#####','#    ','#### ','#    ','#####'],R:['#### ','#   #','#### ','#  # ','#   #']};
+export function asciiTitle():string{return ['POTATO','DOWNLOADER'].map(word=>Array.from({length:5},(_,row)=>[...word].map(c=>glyphs[c][row]).join(' ')).join('\n')).join('\n\n');}
+export function element<T extends HTMLElement=HTMLElement>(selector:string):T{const node=document.querySelector<T>(selector);if(!node)throw new Error(`Missing ${selector}`);return node;}
+export function bytes(value:number):string{return `${(value/1024/1024).toLocaleString('pt-BR',{maximumFractionDigits:1})} MiB`;}
+export function duration(value:number):string{return `${Math.floor(value/60)}:${String(Math.floor(value%60)).padStart(2,'0')}`;}
+export function progressBar(percent?:number):string{if(percent===undefined)return '[ >........................... ]';const n=Math.max(0,Math.min(100,percent));return `[${'#'.repeat(Math.round(n/5))}${'.'.repeat(20-Math.round(n/5))}] ${n}%` ;}
