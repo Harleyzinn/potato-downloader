@@ -1,6 +1,6 @@
 FROM node:24-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ffmpeg ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN python3 -m venv /opt/engine && /opt/engine/bin/pip install --no-cache-dir yt-dlp==2026.10.21
+RUN python3 -m venv /opt/engine && /opt/engine/bin/pip install --no-cache-dir 'yt-dlp[default]==2026.10.21'
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci

@@ -108,7 +108,8 @@ const server=http.createServer(async(req,res)=>{
       if(req.method==='GET' && match[2]){
         if(task.job.state!=='ready'||!task.file)return send(409,{message:'O arquivo ainda não está pronto.'});
         const filename=task.job.filename||'potato.bin';
-        res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':task.job.size,'Content-Disposition':`attachment; filename="potato${extname(task.file)}"; filename*=UTF-8''${encodeURIComponent(filename)}`,'Cache-Control':'no-store'});
+        const encoded=encodeURIComponent(filename).replace(/['()*]/g,c=>`%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+        res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':task.job.size,'Content-Disposition':`attachment; filename="potato${extname(task.file)}"; filename*=UTF-8''${encoded}`,'Cache-Control':'no-store'});
         task.activeStreams++;const stream=createReadStream(task.file);stream.on('error',()=>res.destroy());stream.pipe(res);res.on('close',()=>{stream.destroy();task.activeStreams--;});return;
       }
     }

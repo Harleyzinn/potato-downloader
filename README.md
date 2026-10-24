@@ -5,6 +5,8 @@ Downloader de mídia com identidade própria em ASCII. Frontend em português, t
 - **Frontend:** https://harleyzinn.github.io/potato-downloader/
 - **Código:** https://github.com/Harleyzinn/potato-downloader
 
+![Interface ASCII do Potato Downloader publicada no GitHub Pages](docs/interface.png)
+
 ## Estado da instalação
 
 O frontend é permanente no GitHub Pages. A primeira instalação do backend usa **um túnel HTTPS temporário para este computador**, sem contratação ou cobrança. Ele só funciona enquanto o computador, o processo do motor e o `cloudflared` estiverem ligados. A interface avisa quando esse motor é temporário ou está desconectado. **Não é uma hospedagem de backend permanente.** Ao reiniciar o Quick Tunnel, atualize a variável pública `VITE_API_URL` e publique novamente.
@@ -124,7 +126,7 @@ O backend permite a origem exata `https://harleyzinn.github.io` (a origem não i
 - 100 MiB por trabalho, 20 minutos por mídia, 2 processos simultâneos, 90 s de análise e 8 min de preparação, retenção de até 15 min. Conversão pode ultrapassar tamanho e ser cancelada.
 - Preferências locais, restauração de padrões, movimento reduzido e navegação por teclado. Sem histórico.
 
-Plataformas habilitadas por allowlist: YouTube, Vimeo, TikTok, Instagram, SoundCloud, Reddit, X/Twitter, Internet Archive e Wikimedia Commons. Elas usam os extratores do yt-dlp e podem falhar por mudanças da origem, bloqueios, região, autenticação ou ausência de formatos. **Wikimedia Commons foi testado de ponta a ponta com mídia pública. As demais não são garantidas por este teste.** A interface consulta a lista do servidor.
+Plataformas habilitadas por allowlist: YouTube, Vimeo, TikTok, Instagram, SoundCloud, Reddit, X/Twitter, Internet Archive e Wikimedia Commons. Elas usam os extratores do yt-dlp e podem falhar por mudanças da origem, bloqueios, região, autenticação ou ausência de formatos. **Wikimedia Commons e YouTube tiveram downloads reais verificados com mídia pública. As demais não são garantidas por este teste.** A interface consulta a lista do servidor.
 
 ## Segurança e privacidade
 
@@ -146,7 +148,9 @@ npm test
 npm run build
 ```
 
-Testes cobrem IPs privados/reservados e IPv6 mapeado, proxy HTTP/CONNECT, fronteiras de domínio, metadados/formatos/DRM, sanitização, mensagens e progresso. O teste real usa [File:Example.ogg no Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Example.ogg), mídia pública com licença indicada na página original. A fonte foi analisada e convertida para MP3 e o arquivo resultante foi transferido e inspecionado. Esses testes não comprovam disponibilidade de todas as plataformas.
+Testes cobrem IPs privados/reservados e IPv6 mapeado, proxy HTTP/CONNECT, fronteiras de domínio, metadados/formatos/DRM, sanitização, mensagens e progresso. O teste real usa [File:Example.ogg no Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Example.ogg), mídia pública com licença indicada na página original. A fonte foi analisada e convertida para MP3 e o arquivo resultante foi transferido pelo navegador a partir do Pages (74.383 bytes). Também foi baixado um vídeo WebM de 240p do [trecho Big Buck Bunny, Blender Foundation, CC BY 3.0](https://commons.wikimedia.org/wiki/File:Big_Buck_Bunny_first_23_seconds_1080p.ogv) (957.029 bytes). Mídias de teste não são redistribuídas no repositório. Esses testes não comprovam disponibilidade de todas as plataformas.
+
+Verificação do Pages: workflow de checks e deploy concluído com sucesso; assets carregados no subcaminho correto; análise, seleção real de formato, conversão e download MP3 feitos pela origem publicada; preferências salvas, recarregadas e restauradas; navegação por teclado conferida. Sem rolagem horizontal nas larguras de 390 e 1280 px. Requisições de origem não autorizada receberam 403; plataforma fora da lista foi rejeitada. Um filme oficial da Blender Foundation no YouTube também foi baixado pela API e inspecionado com ffmpeg: MP4 de 35.624.855 bytes com vídeo AV1 144p e áudio AAC. Consulte também [VERIFICATION.md](VERIFICATION.md). Docker não foi executado neste ambiente Windows.
 
 ## Licenças e créditos
 

@@ -5,11 +5,12 @@ export async function request<T>(path:string,init:RequestInit={}):Promise<T>{
   if(!apiBase)throw new ServiceError('O motor ainda não foi conectado. Consulte a seção de ajustes.');
   if(location.protocol==='https:' && !apiBase.startsWith('https://'))throw new ServiceError('O motor precisa de HTTPS para esta página.');
   try{
-    const response=await fetch(`${apiBase}/api${path}`,{...init,headers:{...(init.body?{'Content-Type':'application/json'}:{}),...init.headers},credentials:'omit',referrerPolicy:'no-referrer'});
+    const signal=init.signal ? AbortSignal.any([init.signal,AbortSignal.timeout(100000)]) : AbortSignal.timeout(15000);
+    const response=await fetch(`${apiBase}/api${path}`,{...init,signal,headers:{...(init.body?{'Content-Type':'application/json'}:{}),...init.headers},credentials:'omit',referrerPolicy:'no-referrer'});
     let data:unknown;try{data=await response.json();}catch{throw new ServiceError('Resposta inesperada do motor. Verifique a conexão.');}
     if(!response.ok)throw new ServiceError(typeof data==='object'&&data&&'message'in data?String(data.message):'Serviço indisponível. Tente novamente.',response.status);
     if(!data || typeof data!=='object')throw new ServiceError('Resposta inválida do motor.');return data as T;
-  }catch(error){if(error instanceof ServiceError || (error instanceof DOMException&&error.name==='AbortError'))throw error;throw new ServiceError('Falha de conexão. Verifique sua internet e se o motor está ligado.');}
+  }catch(error){if(error instanceof ServiceError || (error instanceof DOMException&&error.name==='AbortError'))throw error;if(error instanceof DOMException&&error.name==='TimeoutError')throw new ServiceError('Tempo limite atingido. Verifique a conexão e tente novamente.');throw new ServiceError('Falha de conexão. Verifique sua internet e se o motor está ligado.');}
 }
 export async function getHealth():Promise<Health>{
   const result=await request<Health>('/health',{signal:AbortSignal.timeout(8000)});

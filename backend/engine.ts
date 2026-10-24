@@ -14,7 +14,7 @@ export function mediaOptions(raw:RawMedia,id:string):Media {
   if((raw.duration||0)>1200)throw new Error('O limite desta instância é de 20 minutos por mídia.');
   const formats:Format[]=[];
   const available=(raw.formats || [raw]).filter(f=>!f.has_drm && ['http','https','m3u8_native','http_dash_segments'].includes(f.protocol||'https') && /^[\w.-]+$/.test(f.format_id||'') && (f.filesize||f.filesize_approx||0)<=100*1024*1024);
-  const audio=available.filter(f=>f.acodec && f.acodec!=='none');
+  const audio=available.filter(f=>f.acodec && f.acodec!=='none' && f.vcodec==='none');
   for(const f of available) {
     const size=f.filesize || f.filesize_approx;
     if(f.vcodec && f.vcodec!=='none') {
@@ -39,7 +39,7 @@ export function publicError(text:string):string {
   return 'Não foi possível processar a mídia. Tente outro link público ou novamente mais tarde.';
 }
 export function launch(args:string[],proxy:string,signal:AbortSignal,onLine?:(line:string)=>void):{child:ChildProcess;result:Promise<string>} {
-  const child=spawn(ytdlpPath,['--ignore-config','--no-cache-dir','--no-cookies','--no-playlist','--playlist-end','8','--socket-timeout','20','--retries','1','--fragment-retries','1','--proxy',proxy,'--ffmpeg-location',ffmpegPath,...args],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,NO_PROXY:'',no_proxy:''}});
+  const child=spawn(ytdlpPath,['--ignore-config','--no-plugin-dirs','--js-runtimes',`node:${process.execPath}`,'--no-cache-dir','--no-cookies','--no-playlist','--playlist-end','8','--socket-timeout','20','--retries','1','--fragment-retries','1','--proxy',proxy,'--ffmpeg-location',ffmpegPath,...args],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,NO_PROXY:'',no_proxy:''}});
   const result=new Promise<string>((done,fail)=>{
     let out='',err='',pending='';let settled=false;
     const stop=()=>{
