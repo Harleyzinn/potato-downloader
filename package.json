@@ -1,6 +1,6 @@
 {
-  "name": "potato-dumper",
-  "version": "3.1.0",
+  "name": "batatubo",
+  "version": "4.0.0-beta.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -14,7 +14,12 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "engine:update": "tsx scripts/update-engine.ts"
+    "engine:update": "tsx scripts/update-engine.ts",
+    "desktop:prepare": "node scripts/desktop-build.mjs",
+    "desktop:dev": "npm run desktop:prepare && electron .",
+    "desktop:pack": "npm run desktop:prepare && electron-builder --win --x64 --dir",
+    "desktop:dist": "npm run desktop:prepare && electron-builder --win nsis --x64 --publish never",
+    "desktop:check": "tsc --noEmit && node --check desktop/preload.cjs"
   },
   "dependencies": {
     "archiver": "^8.0.0",
@@ -25,10 +30,17 @@
     "@eslint/js": "^10.0.1",
     "@types/archiver": "^8.0.0",
     "@types/node": "^22.0.0",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "^8.0.0",
     "vite": "8.3.5"
-  }
+  },
+  "description": "Batatubo / downloads em terminal ASCII",
+  "author": "Harleyzinn",
+  "license": "MIT",
+  "main": "desktop-build/main.cjs"
 }

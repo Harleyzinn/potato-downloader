@@ -1,0 +1,54 @@
+{
+  "appId": "io.harleyzinn.batatubo",
+  "productName": "Batatubo",
+  "executableName": "Batatubo",
+  "copyright": "Copyright \u00a9 2026 Harleyzinn",
+  "directories": {
+    "output": "release",
+    "buildResources": "desktop"
+  },
+  "files": [
+    "desktop-build/**",
+    "dist-desktop/**",
+    "desktop/preload.cjs",
+    "desktop/setup.html",
+    "desktop/setup.js",
+    "desktop/engines.json",
+    "THIRD_PARTY.md",
+    "LICENSE",
+    "package.json",
+    "!node_modules/ffmpeg-static/ffmpeg*",
+    "!node_modules/ffmpeg-static/install.js"
+  ],
+  "asar": true,
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "signExecutable": false,
+    "artifactName": "Batatubo-${version}-Windows-x64-Setup.${ext}",
+    "icon": "desktop/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": false,
+    "createStartMenuShortcut": false,
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true,
+    "include": "desktop/installer.nsh",
+    "installerLanguages": [
+      "pt_BR"
+    ],
+    "language": "1046",
+    "unicode": true
+  },
+  "publish": null
+}

@@ -15,14 +15,13 @@ import {readCompatibility} from './catalog.ts';
 import {probeUnknownFormats} from './probe.ts';
 import {launch,mediaOptions,publicError,ytdlpPath,ffmpegPath,type RawMedia} from './engine.ts';
 import type {Analysis,Job} from '../src/types.ts';
-
 type Stored={owner:string;analysis:Analysis;urls:string[];raw:RawMedia[]};
 type Task={input?:{url:string;title:string;index:number;formatId:string;conversion:string;numbering:boolean};owner:string;requestKey?:string;fileToken:string;job:Job;controller:AbortController;expiresAt:number;dir:string;file?:string;activeStreams:number;releaseFile?:boolean;hidden?:boolean};
 const analyses=new Map<string,Stored>(),jobs=new Map<string,Task>(),limits=new Map<string,{count:number;until:number}>();
 const creating=new Set<string>();
 const sessions=new Map<string,{until:number}>();
 let active=0,streams=0;
-const engineOK=()=>spawnSync(ytdlpPath,['--version'],{windowsHide:true,timeout:5000}).status===0 && spawnSync(ffmpegPath,['-version'],{windowsHide:true,timeout:5000}).status===0;
+const engineOK=()=>spawnSync(ytdlpPath,['--version'],{windowsHide:true,timeout:15000}).status===0 && spawnSync(ffmpegPath,['-version'],{windowsHide:true,timeout:15000}).status===0;
 const online=engineOK();
 const compatibility=readCompatibility();
 await mkdir(config.tempRoot,{recursive:true});
@@ -42,11 +41,13 @@ const server=http.createServer(async(req,res)=>{
   const send=(code:number,data:unknown)=>{if(res.destroyed)return;res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
   res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Access-Control-Expose-Headers','Accept-Ranges, Content-Length, Content-Range, Content-Disposition');
   const origin=req.headers.origin;
+  if(process.env.DESKTOP_TOKEN && req.method!=='OPTIONS' && req.headers['x-batatubo-desktop']!==process.env.DESKTOP_TOKEN)return send(403,{message:'Acesso local não autorizado.'});
   if(origin && !config.origins.includes(origin))return send(403,{message:'Origem não autorizada.'});
   if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
-  res.setHeader('Access-Control-Allow-Methods','GET, HEAD, POST, DELETE, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-Potato-Session, Range');
+  res.setHeader('Access-Control-Allow-Methods','GET, HEAD, POST, DELETE, OPTIONS');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-Potato-Session, X-Batatubo-Desktop, Range');
   if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
   const path=(req.url||'/').split('?')[0];
+  if(process.env.DESKTOP_TOKEN && path==='/api/desktop/activity' && req.method==='GET')return send(200,{active:[...jobs.values()].filter(t=>['preparing','downloading','processing','packing'].includes(t.job.state)).length+streams});
   if(path==='/api/health' && req.method==='GET')return send(200,{online,engine:`yt-dlp ${compatibility.version} + ffmpeg`,platforms:compatibility.groups.filter(p=>p.installed).map(p=>p.name),limits:{maxBytes:null,maxDuration:null,applicationSizeLimit:false,workerIdleMs:config.idleMs,streamIdleMs:config.streamIdleMs},temporary:config.temporary,batch:{maxItems:config.maxBatch,pageSize:config.playlistPage,maxPlaylist:config.maxPlaylist,concurrency:1,maxZipBytes:null,ttl:config.ttl}});
   if(path==='/api/compatibility' && req.method==='GET')return send(200,compatibility);
   const ip=req.socket.remoteAddress||'unknown';
@@ -162,7 +163,7 @@ const server=http.createServer(async(req,res)=>{
         archive.pipe(output);
         sources.forEach((t,i)=>archive.file(t!.file!,{name:`${String(i+1).padStart(3,'0')}-${t!.job.filename}`}));
         void archive.finalize().catch(fail);
-      }).then(async()=>{if(controller.signal.aborted)throw new Error('cancelled');const info=await stat(file);task.file=file;task.expiresAt=Date.now()+config.ttl;task.job={id,state:'ready',filename:'potato-dumper-lote.zip',size:info.size,fileToken:task.fileToken,expiresAt:task.expiresAt};})
+      }).then(async()=>{if(controller.signal.aborted)throw new Error('cancelled');const info=await stat(file);task.file=file;task.expiresAt=Date.now()+config.ttl;task.job={id,state:'ready',filename:'batatubo-lote.zip',size:info.size,fileToken:task.fileToken,expiresAt:task.expiresAt};})
         .catch(async(error)=>{archive.abort();output.destroy();task.job={id,state:controller.signal.aborted&&controller.signal.reason!=='stalled'?'cancelled':'error',message:publicError(String(controller.signal.reason||error))};task.expiresAt=Date.now()+config.ttl;await removeTemporary(dir);})
         .finally(async()=>{watch.stop();active--;for(const source of sources){source!.activeStreams--;if(task.job.state==='ready'){source!.job.state='archived';source!.job.message='Incluído no ZIP. O original temporário foi removido; prepare novamente para obter uma cópia individual.';source!.expiresAt=Date.now()+config.ttl;await release(source!);}else if(source!.releaseFile)await release(source!);}});
       return send(202,task.job);
@@ -218,7 +219,9 @@ const cleanup=setInterval(async()=>{
     }
   }catch{/* Locked temporary files are retried at the next cleanup cycle. */}
 },30000);cleanup.unref();
-server.listen(config.port,config.host,()=>console.log(`Potato API http://${config.host}:${config.port} / engine ${online?'online':'offline'}`));
+server.listen(config.port,config.host,()=>{const addr=server.address();if(typeof addr==='object'&&addr&&process.send)process.send({type:'ready',port:addr.port,online});console.log(`Batatubo API / engine ${online?'online':'offline'}`);});
 async function shutdown(){for(const task of jobs.values())task.controller.abort();server.close();proxy.close();await Promise.allSettled([...jobs.values()].map(task=>removeTemporary(task.dir)));process.exit(0);}
+process.on('message',message=>{if(message==='shutdown')void shutdown();});
+process.on('disconnect',()=>void shutdown());
 process.on('SIGINT',()=>void shutdown());process.on('SIGTERM',()=>void shutdown());
 // Do not log URLs, metadata, raw extractor errors, or download capability IDs.

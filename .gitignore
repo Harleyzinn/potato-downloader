@@ -6,3 +6,8 @@ dist/
 .runtime/
 *.log
 .DS_Store
+
+dist-desktop/
+desktop-build/
+desktop-resources/
+release/

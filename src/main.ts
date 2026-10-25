@@ -1,3 +1,6 @@
+import {initAppearance,resetAppearance} from './appearance.ts';
+import {initEnhancements,activity} from './enhancements.ts';
+import {initDesktop,type NativeTransfer} from './desktop.ts';
 import './style.css';
 import type {Analysis,Media,Mode,Job} from './types.ts';
 import {element as $,asciiTitle,bytes,duration,progressBar,terminalIllustration} from './components.ts';
@@ -15,7 +18,7 @@ document.querySelectorAll('select').forEach(select=>{const shell=document.create
 const input=$<HTMLInputElement>('#media-url');
 const format=$<HTMLSelectElement>('#format'),itemSelect=$<HTMLSelectElement>('#media-item'),conversion=$<HTMLSelectElement>('#conversion');
 function state(label:string,message:string,options:{error?:boolean;progress?:number;working?:boolean}={}){
-  if($('#state-label').textContent!==label)$('#state-label').textContent=label;if($('#status').textContent!==message)$('#status').textContent=message;$('#status').classList.toggle('error',Boolean(options.error));
+  activity(label);if($('#state-label').textContent!==label)$('#state-label').textContent=label;if($('#status').textContent!==message)$('#status').textContent=message;$('#status').classList.toggle('error',Boolean(options.error));
   $('#terminal-art').textContent=terminalIllustration(label);
   $('#indicator').hidden=!options.working;$('#indicator').textContent=progressBar(options.progress);$('#indicator').setAttribute('role','progressbar');$('#indicator').setAttribute('aria-label','Etapa atual no servidor');$('#indicator').setAttribute('aria-valuemin','0');$('#indicator').setAttribute('aria-valuemax','100');if(options.progress===undefined){$('#indicator').removeAttribute('aria-valuenow');$('#indicator').setAttribute('aria-valuetext',label+'; percentual indisponível');}else{$('#indicator').setAttribute('aria-valuenow',String(options.progress));$('#indicator').setAttribute('aria-valuetext',`${options.progress}% da faixa de origem; processamento ainda pendente`);}
   const step=/ANALISANDO/.test(label)?1:/MÍDIA DISPONÍVEL/.test(label)?2:/PREPARANDO|TRANSFERINDO/.test(label)?3:/ARQUIVO PREPARADO|DOWNLOAD INICIADO/.test(label)?4:0;
@@ -23,14 +26,14 @@ function state(label:string,message:string,options:{error?:boolean;progress?:num
 }
 function lock(value:boolean){busy=value;$<HTMLButtonElement>('#analyze-button').disabled=value;$<HTMLButtonElement>('#prepare').disabled=value;input.disabled=value;$<HTMLButtonElement>('#paste').disabled=value;$<HTMLButtonElement>('#clear').disabled=value;$('#media-panel').inert=value;$('#cancel').hidden=!value;}
 function resetResults(){analysis=undefined;$('#media-panel').hidden=true;$('#save-file').hidden=true;$('#transfer-note').hidden=true;$('#retry').hidden=true;}
-function navigate(){const page=['baixar','ajustes','ajuda','fontes'].includes(location.hash.slice(1))?location.hash.slice(1):'baixar';document.querySelectorAll<HTMLElement>('.page').forEach(node=>node.hidden=node.id!==page);document.querySelectorAll<HTMLAnchorElement>('[data-page]').forEach(node=>{if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});$('#breadcrumb').textContent=`~/potato/${page}`;document.title=`Potato Dumper / ${page}`;}
+function navigate(){const page=['baixar','ajustes','ajuda','fontes','sobre'].includes(location.hash.slice(1))?location.hash.slice(1):'baixar';document.querySelectorAll<HTMLElement>('.page').forEach(node=>node.hidden=node.id!==page);document.querySelectorAll<HTMLAnchorElement>('[data-page]').forEach(node=>{if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});$('#breadcrumb').textContent=`~/batatubo/${page}`;document.title=`Batatubo / ${page}`;}
 window.addEventListener('hashchange',navigate);navigate();
 function preferenceUI(){
   $<HTMLSelectElement>('#pref-mode').value=prefs.mode;$<HTMLSelectElement>('#pref-quality').value=prefs.quality;$<HTMLSelectElement>('#pref-audio').value=prefs.audioFormat;$<HTMLInputElement>('#pref-motion').checked=prefs.reducedMotion;document.body.classList.toggle('no-motion',prefs.reducedMotion);
 }
 preferenceUI();
 $('#preferences-form').addEventListener('submit',event=>{event.preventDefault();prefs={mode:$<HTMLSelectElement>('#pref-mode').value as Mode,quality:$<HTMLSelectElement>('#pref-quality').value,audioFormat:$<HTMLSelectElement>('#pref-audio').value,reducedMotion:$<HTMLInputElement>('#pref-motion').checked};preferenceUI();$('#pref-status').textContent=savePreferences(prefs)?'[ok] Preferências salvas apenas neste navegador.':'[!] Ajustes aplicados nesta sessão; armazenamento bloqueado.';if(analysis)renderMedia();});
-$('#reset').addEventListener('click',()=>{prefs={...defaults};savePreferences(prefs);preferenceUI();$('#pref-status').textContent='[ok] Configurações padrão restauradas.';if(analysis)renderMedia();});
+$('#reset').addEventListener('click',()=>{prefs={...defaults};resetAppearance();savePreferences(prefs);preferenceUI();$('#pref-status').textContent='[ok] Configurações padrão restauradas.';if(analysis)renderMedia();});
 $('#backend-description').textContent=apiBase ? `Serviço de download: ${apiBase}` : 'Nenhum motor foi conectado a esta publicação. Configure VITE_API_URL e publique novamente.';
 async function health(){
   $('#health-button').textContent='[?] verificando motor';
@@ -93,9 +96,9 @@ $('#new-download').addEventListener('click',async()=>{await cancel();resetResult
 function fileReady(job:Job){
   lock(false);state('ARQUIVO PREPARADO',`[ok] ${job.filename||'Arquivo'}${job.size?` / ${bytes(job.size)}`:''}. Clique abaixo para iniciar o download.`);
   const link=$<HTMLAnchorElement>('#save-file');link.href=fileURL(job);link.download=job.filename||'potato';link.referrerPolicy='no-referrer';link.hidden=false;
-  $('#transfer-note').textContent='O navegador assume a transferência. O Potato não confirma se o arquivo foi salvo. Arquivo temporário: 15 minutos para iniciar. Após o envio completo, a cópia no servidor é removida. Transferências ativas não expiram por duração.';$('#transfer-note').hidden=false;
+  $('#transfer-note').textContent=window.batatubo?'A próxima etapa grava o arquivo na pasta padrão deste computador. O painel de transferências confirma a gravação e permite cancelar.':'O navegador assume a transferência. O Batatubo não confirma se o arquivo foi salvo. Arquivo temporário: 15 minutos para iniciar. Após o envio completo, a cópia no servidor é removida. Transferências ativas não expiram por duração.';$('#transfer-note').hidden=false;
 }
-$('#save-file').addEventListener('click',()=>{state('DOWNLOAD INICIADO','Download iniciado pelo navegador. Acompanhe o gerenciador de downloads.');if(jobId)void monitorDelivery(jobId,generation);});
+$('#save-file').addEventListener('click',()=>{state(window.batatubo?'GRAVANDO NO DISPOSITIVO':'DOWNLOAD INICIADO',window.batatubo?'Acompanhe os bytes e a confirmação no painel de transferências locais.':'Download iniciado pelo navegador. Acompanhe o gerenciador de downloads.');if(jobId)void monitorDelivery(jobId,generation);});
 async function monitorDelivery(id:string,version:number){
   try{const job=await getJob(id);if(version!==generation)return;if(job.state==='sent'||job.state==='archived'){state('ENVIO ENCERRADO',job.message||'O servidor concluiu o envio. Gravação no dispositivo não confirmada.');$('#save-file').hidden=true;return;}if(job.transfer==='interrupted'||job.transfer==='partial'){fileReady(job);$('#status').textContent=job.message||'Transferência interrompida. Você pode tentar novamente.';return;}if(job.state==='cancelled'||job.state==='error'){state('FALHA',job.message||'Arquivo indisponível.');$('#save-file').hidden=true;return;}}catch(error){if(error instanceof ServiceError&&[401,404,410].includes(error.status))return;}if(version===generation)poll=setTimeout(()=>void monitorDelivery(id,version),2000);
 }
@@ -120,6 +123,8 @@ $('#prepare').addEventListener('click',async()=>{
 });
 function clock(){$('#clock').textContent=new Date().toLocaleTimeString('pt-BR');}clock();setInterval(clock,1000);
 initBatch();
+initAppearance();initEnhancements();initDesktop();navigate();
+window.addEventListener('batatubo:transfer',event=>{const transfer=(event as CustomEvent<NativeTransfer>).detail;if(transfer.id!==jobId)return;if(transfer.state==='saved'){if(poll)clearTimeout(poll);generation++;state('ARQUIVO GRAVADO','[OK] Arquivo gravado neste dispositivo. Use Abrir pasta no painel local.');$('#save-file').hidden=true;}if(transfer.state==='error'||transfer.state==='cancelled'){if(poll)clearTimeout(poll);generation++;state(transfer.state==='error'?'FALHA NA GRAVAÇÃO':'CANCELADO',transfer.message||'Transferência cancelada; parcial removido. Prepare outra cópia para recomeçar.',{error:transfer.state==='error'});$('#save-file').hidden=true;$('#retry').hidden=false;}});
 
 // Keep decorative terminal borders out of accessible heading names.
 for(const heading of document.querySelectorAll<HTMLElement>('h2,h3')){const title=heading.textContent||'';if(title.startsWith('+--'))heading.setAttribute('aria-label',title.replace(/^\+--\s*|\s*--\+$/g,''));}

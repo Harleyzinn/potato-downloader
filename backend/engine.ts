@@ -27,25 +27,9 @@ export function mediaOptions(raw:RawMedia,id:string):Media {
     if(f.acodec && f.acodec!=='none')formats.push({id:`a:${f.format_id}`,mode:'audio',label:`Áudio de ${f.ext||'original'}${f.abr ? ` / ${Math.round(f.abr)} kbps` : ''}`,ext:f.ext||'m4a',size,estimated:!f.filesize});
   }
   if(!formats.length)throw new Error('Nenhum formato público compatível. A mídia pode estar restrita.');
-  return {id,title:String(raw.title || 'Potato Dumper').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,source:String(raw.extractor_key||raw.extractor||'generic').slice(0,100),identity:raw.id?`${raw.extractor_key||raw.extractor||'generic'}:${raw.id}`:undefined,formats:formats.reverse().slice(0,100)};
+  return {id,title:String(raw.title || 'Batatubo').slice(0,250),author:raw.uploader||raw.creator,duration:raw.duration,source:String(raw.extractor_key||raw.extractor||'generic').slice(0,100),identity:raw.id?`${raw.extractor_key||raw.extractor||'generic'}:${raw.id}`:undefined,formats:formats.reverse().slice(0,100)};
 }
-export function publicError(text:string):string {
-  if(/ENOSPC|no space left|disk full|not enough space|EDQUOT|disk quota/i.test(text))return 'O armazenamento do backend ficou sem espaço ou atingiu uma cota externa. Libere espaço e prepare novamente; os arquivos incompletos serão removidos.';
-  if(/EACCES|EROFS|EIO|permission denied.*(file|output)/i.test(text))return 'Falha de leitura ou escrita no armazenamento do backend. Verifique o disco e as permissões e prepare novamente.';
-  if(/stalled/i.test(text))return 'O processo ficou sem avanço observável e foi encerrado. Verifique a origem, o disco e a configuração de inatividade do backend.';
-  if(/metadata limit/i.test(text))return 'A resposta de metadados excedeu a proteção de memória. Use uma página menor da playlist ou um link individual.';
-  if(/413|too large|size limit|quota|bandwidth.*exceeded/i.test(text))return 'A origem, o proxy ou a hospedagem recusou a transferência por uma restrição externa. A aplicação não impõe limite de tamanho de mídia.';
-  if(/Transmissões ao vivo/.test(text))return 'Este motor aceita streams sob demanda (VOD), mas não grava transmissões ao vivo.';
-  if(/DRM|encrypted|protected/i.test(text))return 'Mídia protegida ou criptografada sem suporte. Não é possível processá-la nesta instância.';
-  if(/private|login|sign in|members.only|age.restrict|403|restricted|not available in your country/i.test(text))return 'Conteúdo privado ou restrito. Use um link público que permita download.';
-  if(/format.*not available|Nenhum formato/i.test(text))return 'Nenhum formato público compatível. Confira o link ou tente outro arquivo.';
-  if(/404|removed|not found|unavailable/i.test(text))return 'Conteúdo removido ou indisponível. Confira o link.';
-  if(/429|too many|rate.limit/i.test(text))return 'A plataforma limitou os pedidos. Tente novamente mais tarde.';
-  if(/format.*not available/i.test(text))return 'Este formato não está mais disponível. Analise o link novamente.';
-  if(/unsupported url/i.test(text))return 'Este tipo de link ainda não é compatível com o motor.';
-  if(/timed out|timeout/i.test(text))return 'Tempo limite atingido. Tente novamente.';
-  return 'Não foi possível processar a mídia. Tente outro link público ou novamente mais tarde.';
-}
+export {publicError} from './errors.ts';
 export function launch(args:string[],proxy:string,signal:AbortSignal,onLine?:(line:string)=>void):{child:ChildProcess;result:Promise<string>} {
   const child=spawn(ytdlpPath,['--ignore-config','--no-plugin-dirs','--xff','never','--js-runtimes',`node:${process.execPath}`,'--no-cache-dir','--no-cookies','--no-playlist','--socket-timeout','20','--retries','1','--fragment-retries','1','--limit-rate','5M','--proxy',proxy,'--ffmpeg-location',ffmpegPath,...args],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,NO_PROXY:'',no_proxy:''}});
   const result=new Promise<string>((done,fail)=>{

@@ -1,11 +1,13 @@
 import type {Analysis,Job,Health} from './types.ts';
-export const apiBase=(import.meta.env?.VITE_API_URL as string|undefined || (import.meta.env?.DEV&&typeof location!=='undefined'?location.origin:'')).replace(/\/$/,'');
+import {deploymentAPI} from './runtime-config.ts';
+const native=typeof window!=='undefined'?window.batatubo?.runtime:undefined;
+export const apiBase=(native?.apiBase || await deploymentAPI() || import.meta.env?.VITE_API_URL as string|undefined || (import.meta.env?.DEV&&typeof location!=='undefined'?location.origin:'')).replace(/\/$/,'');
 export class ServiceError extends Error{constructor(message:string,public status=0){super(message);}}
 let sessionToken='',sessionRequest:Promise<string>|undefined;
 try{sessionToken=sessionStorage.getItem('potato.v3.session')||'';}catch{/* Storage may be blocked; session remains in memory. */}
 async function session():Promise<string>{
   if(sessionToken)return sessionToken;
-  sessionRequest??=(async()=>{const response=await fetch(`${apiBase}/api/session`,{method:'POST',credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(10000)});if(!response.ok)throw new ServiceError('Não foi possível iniciar uma sessão protegida.',response.status);const data=await response.json();if(typeof data.token!=='string')throw new ServiceError('Sessão inválida.');sessionToken=data.token;try{sessionStorage.setItem('potato.v3.session',sessionToken);}catch{/* Memory-only session. */}return sessionToken;})().finally(()=>{sessionRequest=undefined;});
+  sessionRequest??=(async()=>{const response=await fetch(`${apiBase}/api/session`,{method:'POST',headers:native?{'X-Batatubo-Desktop':native.token}:{},credentials:'omit',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(10000)});if(!response.ok)throw new ServiceError('Não foi possível iniciar uma sessão protegida.',response.status);const data=await response.json();if(typeof data.token!=='string')throw new ServiceError('Sessão inválida.');sessionToken=data.token;try{sessionStorage.setItem('potato.v3.session',sessionToken);}catch{/* Memory-only session. */}return sessionToken;})().finally(()=>{sessionRequest=undefined;});
   return sessionRequest;
 }
 export function fileURL(job:Job):string{return `${apiBase}/api/jobs/${encodeURIComponent(job.id)}/file?token=${encodeURIComponent(job.fileToken||'')}`;}
@@ -15,7 +17,7 @@ export async function request<T>(path:string,init:RequestInit={}):Promise<T>{
   try{
     const signal=init.signal ? AbortSignal.any([init.signal,AbortSignal.timeout(100000)]) : AbortSignal.timeout(15000);
     const token=['/health','/compatibility'].includes(path)?'':await session();
-    const response=await fetch(`${apiBase}/api${path}`,{...init,signal,headers:{...(init.body?{'Content-Type':'application/json'}:{}),...(token?{'X-Potato-Session':token}:{}),...init.headers},credentials:'omit',referrerPolicy:'no-referrer'});
+    const response=await fetch(`${apiBase}/api${path}`,{...init,signal,headers:{...(native?{'X-Batatubo-Desktop':native.token}:{}),...(init.body?{'Content-Type':'application/json'}:{}),...(token?{'X-Potato-Session':token}:{}),...init.headers},credentials:'omit',referrerPolicy:'no-referrer'});
     let data:unknown;try{data=await response.json();}catch{throw new ServiceError('Resposta inesperada do motor. Verifique a conexão.');}
     if(response.status===401){sessionToken='';try{sessionStorage.removeItem('potato.v3.session');}catch{/* Memory-only session. */}}
     if(!response.ok)throw new ServiceError(typeof data==='object'&&data&&'message'in data?String(data.message):'Serviço indisponível. Tente novamente.',response.status);

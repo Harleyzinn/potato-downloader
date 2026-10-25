@@ -1,0 +1,3 @@
+const button=document.querySelector('#prepare');
+window.batatubo.onSetup(value=>{document.querySelector('#status').textContent=value.message;const bar=document.querySelector('#progress');bar.hidden=false;if(value.total){bar.max=value.total;bar.value=value.bytes;}else bar.removeAttribute('value');});
+button.addEventListener('click',async()=>{button.disabled=true;try{await window.batatubo.prepareEngine();}catch{document.querySelector('#status').textContent='[ERRO] Falha na preparação. Confira conexão, espaço e permissões. Nenhum arquivo não verificado será executado. Tente novamente.';button.disabled=false;}});

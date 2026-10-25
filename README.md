@@ -1,15 +1,80 @@
-# [p] Potato Dumper
+# [B] Batatubo / Tubo Edition
+
+**Sua mídia passa pelo tubo. A batata fica.** Batatubo junta batata com o tubo por onde a mídia passa. É a evolução do Potato Dumper; o repositório, o endereço do Pages e as chaves de preferências anteriores foram preservados.
+
+- [Abrir versão web](https://harleyzinn.github.io/potato-downloader/)
+- [Windows x64 / 4.0.0-beta.1 / instalador e SHA-256](https://github.com/Harleyzinn/potato-downloader/releases/tag/v4.0.0-beta.1)
+- [Código e histórico](https://github.com/Harleyzinn/potato-downloader)
+
+## Instalar e usar no Windows
+
+1. Abra a release acima e baixe `Batatubo-4.0.0-beta.1-Windows-x64-Setup.exe`. Confira o SHA-256 com `SHA256SUMS.txt` da mesma release.
+2. Execute o instalador assistido por usuário. Escolha a pasta, reveja o resumo e marque os atalhos que desejar. Nenhum início automático é criado. O desinstalador aparece nas configurações de aplicativos do Windows.
+3. Abra o aplicativo. Na primeira abertura, clique em **Preparar motor local**. Ele obtém yt-dlp e FFmpeg diretamente dos distribuidores de origem por HTTPS, confere os hashes fixados e mostra bytes reais. Essa etapa precisa de conexão e espaço, mas não exige terminal, Node ou Python instalados pelo usuário.
+4. Em Ajustes, escolha a pasta padrão. O aplicativo lembra essa preferência, lista até 100 nomes existentes sob demanda e oferece abrir a pasta. Conflitos geram uma confirmação para salvar outra cópia; não há sobrescrita silenciosa.
+5. Prepare a mídia e clique em baixar. A preparação ocorre no motor local, fora da interface. O painel de transferências acompanha a gravação por streaming e confirma o fechamento do arquivo no disco. Cancelamentos removem o arquivo parcial. Ao fechar com tarefas ativas, o aplicativo oferece continuar ou cancelar e sair.
+
+**Pré-release sem assinatura digital**, para Windows 10 ou posterior, x64. Não é necessário desativar proteções do Windows. Compilação e testes automatizados não equivalem a validação em máquina limpa; consulte [VERIFICATION.md](VERIFICATION.md) para as etapas efetivamente executadas. O instalador contém Electron e o aplicativo; os executáveis de extração/conversão são gerenciados na primeira abertura, sem redistribuição deles no instalador. Versões, hashes e licenças: [THIRD_PARTY.md](THIRD_PARTY.md) e [desktop/engines.json](desktop/engines.json).
+
+Atualizações preservam o perfil `%APPDATA%/Batatubo` e os arquivos baixados. A remoção das preferências é uma opção desmarcada do desinstalador. Downloads ficam fora dos dados internos e não são removidos. Os motores obtidos anteriormente ficam no perfil para uma eventual reinstalação. Não há atualizador silencioso: Sobre permite consultar releases do GitHub, sem baixar ou instalar uma nova versão.
+
+## Temas e terminal ASCII
+
+Cinco paletas: **Potato Classic**, **Terminal Green**, **Amber CRT**, **Ice Terminal** e **Light Paper**. A escolha tem prévia imediata e persistência; também é possível acompanhar o sistema. Fonte de 12, 13, 15 ou 17 px, densidade confortável/compacta, redução de movimento e scanlines opcionais (desligadas por padrão). Restauração de aparência e preferências disponível. Os testes de contraste verificam texto, detalhes, acentos e erros sobre os dois fundos, com razão mínima 4,5:1. Isso não substitui uma auditoria completa de acessibilidade.
+
+HTML semântico com artes decorativas fora da leitura assistiva, foco visível e controles por teclado. Alt+1 a Alt+5 abrem Downloads, Ajustes, Ajuda, Fontes e Sobre. Alt+L foca o link e Alt+Q abre a fila. Tab/Shift+Tab percorrem os controles. Escape cancela a preparação individual ativa dentro do aplicativo. O painel de atividade guarda apenas etapas em memória; o diagnóstico exportado não inclui links, títulos de mídia, caminhos ou tokens.
+
+## Arquitetura desktop e build
+
+A versão web e o desktop compartilham os mesmos módulos TypeScript, temas, playlists, fila, formatos e progresso real. yt-dlp e FFmpeg continuam sendo o mecanismo de extração e conversão: não houve troca de motor.
+
+Foi escolhido **Electron + NSIS**. Tauri foi avaliado: seu shell pode ser menor, mas reutilizar este backend Node exigiria empacotar outro runtime ou reimplementar a coordenação em Rust. Electron já oferece Chromium e Node, permitindo um subprocesso local do backend existente. O custo é um instalador maior (aproximadamente 120 MiB nesta prévia; o valor exato consta na release), além do espaço dos motores na primeira abertura. [Segurança do Electron](https://www.electronjs.org/docs/latest/tutorial/security), [distribuição Tauri](https://tauri.app/distribute/), [NSIS no electron-builder](https://www.electron.build/nsis.html).
+
+```text
+[ interface compartilhada / renderer sem Node ]
+       | APIs nativas restritas / contexto isolado
+[ Electron main ] ----> [ pasta escolhida / streaming / .partial ]
+       | subprocesso local, apenas enquanto o app estiver aberto
+[ backend Node / loopback / porta aleatória / token por execução ]
+       | proxy com pinagem DNS e proteção contra SSRF
+[ yt-dlp ] --------> [ FFmpeg ] --------> [ arquivos temporários ]
+```
+
+Sandbox, isolamento de contexto e webSecurity ficam habilitados. IPC aceita apenas o frame principal dos arquivos locais esperados; não expõe shell, comando, caminho arbitrário de mídia ou URL nativa de download. A camada nativa reconstrói a URL do arquivo a partir de uma capacidade validada. O backend local exige token efêmero em todas as requisições, preserva o proxy contra SSRF e não registra URLs completas. Nenhum processo permanece por opção padrão após fechar normalmente.
+
+```powershell
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm run build             # web / GitHub Pages
+npm run desktop:dev       # interface e motor locais
+npm run desktop:pack      # aplicativo sem instalador, para inspeção
+npm run desktop:dist      # instalador NSIS em release/
+```
+
+O instalador nativo tem páginas ASCII próprias de boas-vindas e revisão; seleção de pasta, progresso, conclusão e desinstalação usam controles nativos do NSIS. Ele não imita a página web e não implementa todos os temas dentro do instalador. Arquivo fonte: `desktop/installer.nsh`; identidade estável: `io.harleyzinn.batatubo`. Não altere esse identificador ao atualizar.
+
+### Publicar e atualizar
+
+`pages.yml` executa lint, tipos, testes e build antes de publicar o frontend no endereço existente. `desktop.yml` compila em runner Windows, gera o instalador, calcula SHA-256 e guarda artefatos. Publica uma **pré-release** após um push validado em main, por tag `v*` ou pela execução manual com `publish` marcado. Builds posteriores da mesma versão atualizam os artefatos dessa pré-release. A versão vem de package.json; o link no site e as notas devem acompanhar essa versão. Binários ficam em releases, nunca no histórico Git.
+
+Para atualizar o motor desktop, revise `desktop/engines.json`: URL versionada do fornecedor, SHA-256 publicado quando disponível e hash do executável descompactado. Refaça as integrações reais e publique outra versão. Os hashes conferem integridade; não são assinatura do fornecedor. Não há execução de um arquivo cujo hash não corresponda ao manifesto. Atualizar apenas o backend remoto continua possível com `npm run engine:update` e reinício, sem reescrever a UI.
+
+A seguir ficam as instruções do servidor web, cobertura, proteções e evidências anteriores, que continuam aplicáveis. **Sem limite de tamanho imposto pela aplicação**; disco, memória dos processos, rede, proxy, sistema de arquivos e origem ainda têm restrições próprias. A fila continua com até 20 itens, playlists em páginas de 25 até 200 itens, um preparo por fila, dois processos globais e controles de frequência. A instalação desktop evita depender do túnel remoto, mas não evita restrições da plataforma de origem.
+
+---
 
 Downloader de mídia com identidade própria em ASCII. Frontend em português, tons de batata, análise real de formatos e preparação de arquivos com **yt-dlp + ffmpeg**. Não usa API, instância nem código do Cobalt.
 
 - **Frontend:** https://harleyzinn.github.io/potato-downloader/
 - **Código:** https://github.com/Harleyzinn/potato-downloader
 
-![Interface ASCII do Potato Dumper publicada no GitHub Pages](docs/interface.png)
+![Interface ASCII do Batatubo publicada no GitHub Pages](docs/interface.png)
 
 ## Estado da instalação
 
-O frontend é permanente no GitHub Pages. A primeira instalação do backend usa **um túnel HTTPS temporário para este computador**, sem contratação ou cobrança. Ele só funciona enquanto o computador, o processo do motor e o `cloudflared` estiverem ligados. A interface avisa quando esse motor é temporário ou está desconectado. **Não é uma hospedagem de backend permanente.** Ao reiniciar o Quick Tunnel, atualize a variável pública `VITE_API_URL` e publique novamente.
+O frontend é permanente no GitHub Pages. A primeira instalação do backend usa **um túnel HTTPS temporário para este computador**, sem contratação ou cobrança. Ele só funciona enquanto o computador, o processo do motor e o `cloudflared` estiverem ligados. A interface avisa quando esse motor é temporário ou está desconectado. **Não é uma hospedagem de backend permanente.** Ao reiniciar o Quick Tunnel, atualize `public/backend.json` com a URL HTTPS pública e publique novamente. Esse arquivo público tem prioridade sobre `VITE_API_URL`; o desktop e o desenvolvimento local ignoram essa configuração. Não coloque credenciais nele.
 
 Para funcionar continuamente com seu computador desligado, instale o backend em um servidor Linux/Docker que você controla, com endereço HTTPS estável. GitHub Pages não executa Node, Python, yt-dlp ou ffmpeg. Não é possível substituir esse servidor por um workflow de download ou por um arquivo estático.
 
@@ -19,7 +84,7 @@ Para funcionar continuamente com seu computador desligado, instale o backend em 
 GitHub Pages (HTML/CSS/TypeScript)
         | HTTPS + CORS
         v
-Potato API (Node / TypeScript)
+Batatubo API (Node / TypeScript)
         | análise JSON / seleção de formato / processo limitado
         v
 yt-dlp -> proxy local com validação e pinagem DNS -> plataforma pública
@@ -104,7 +169,7 @@ Esta implementação não requer credenciais de plataforma. `.env`, `.runtime` e
 ## Publicação no GitHub Pages
 
 1. Em **Settings > Pages > Source**, selecione **GitHub Actions**.
-2. Em **Settings > Secrets and variables > Actions > Variables**, crie a variável pública de repositório `VITE_API_URL` com a URL HTTPS do backend.
+2. Configure `public/backend.json` com a URL HTTPS pública do backend. Alternativamente, remova esse arquivo e crie a variável pública de repositório `VITE_API_URL` em **Settings > Secrets and variables > Actions > Variables**.
 3. Envie para `main` ou execute **Actions > Checks and GitHub Pages > Run workflow**.
 4. O workflow instala com `npm ci`, executa lint, tipos, testes, build e publica somente após passar. Pull requests executam checks sem publicação.
 
@@ -173,7 +238,7 @@ O argumento de build mantém a versão reproduzível; não usa atualizações si
 
 A escolha considera os fluxos verificados e a operação disponível, **não só a contagem de extratores**. Não há evidência obtida nesta revisão de que trocar o motor melhore os downloads já funcionais. Combinar Cobalt agora acrescentaria um segundo serviço, contratos de resposta, proteção e manutenção, sem ganho comprovado por um caso concreto de regressão. As vantagens documentadas de Cobalt para certas galerias não são apresentadas como implementadas ou testadas no Potato. Uma combinação futura deve começar por uma mídia autorizada que falhe no motor atual e funcione na alternativa, preservando as mesmas proteções de rede.
 
-Nenhuma API pública do Cobalt foi usada e nenhuma nova alegação de plataforma testada foi adicionada nesta revisão. Os endereços `Harleyzinn/potato-downloader` e `/potato-downloader/` permanecem por compatibilidade, embora produto, pacote npm e logo agora se chamem **Potato Dumper**. A chave de preferências e a pasta temporária técnica existentes são mantidas para preservar preferências e limpeza de arquivos antigos.
+Nenhuma API pública do Cobalt foi usada e nenhuma nova alegação de plataforma testada foi adicionada nesta revisão. Os endereços `Harleyzinn/potato-downloader` e `/potato-downloader/` permanecem por compatibilidade, embora produto, pacote npm e logo agora se chamem **Batatubo**. A chave de preferências e a pasta temporária técnica existentes são mantidas para preservar preferências e limpeza de arquivos antigos.
 
 ## Segurança e privacidade
 
