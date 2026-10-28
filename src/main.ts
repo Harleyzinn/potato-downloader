@@ -35,18 +35,22 @@ preferenceUI();
 $('#preferences-form').addEventListener('submit',event=>{event.preventDefault();prefs={mode:$<HTMLSelectElement>('#pref-mode').value as Mode,quality:$<HTMLSelectElement>('#pref-quality').value,audioFormat:$<HTMLSelectElement>('#pref-audio').value,reducedMotion:$<HTMLInputElement>('#pref-motion').checked};preferenceUI();$('#pref-status').textContent=savePreferences(prefs)?'[ok] Preferências salvas apenas neste navegador.':'[!] Ajustes aplicados nesta sessão; armazenamento bloqueado.';if(analysis)renderMedia();});
 $('#reset').addEventListener('click',()=>{prefs={...defaults};resetAppearance();savePreferences(prefs);preferenceUI();$('#pref-status').textContent='[ok] Configurações padrão restauradas.';if(analysis)renderMedia();});
 $('#backend-description').textContent=apiBase ? `Serviço de download: ${apiBase}` : 'Nenhum motor foi conectado a esta publicação. Configure VITE_API_URL e publique novamente.';
+let healthInFlight=false,lastHealth=0,lastEngine='';
 async function health(){
+  if(healthInFlight)return;healthInFlight=true;
   $('#health-button').textContent='[?] verificando motor';
   try{
     const data=await getHealth();if(!data.online)throw new Error('O serviço respondeu, mas yt-dlp ou ffmpeg não está disponível.');
     $('#health-button').textContent='[*] motor conectado';$('#platform-list').replaceChildren();
     for(const name of data.platforms.filter(isPublicExample)){const span=document.createElement('span');span.className='chip';span.textContent=name;$('#platform-list').append(span);}
-    void refreshCatalog();
+    if(lastEngine!==data.engine){lastEngine=data.engine;void refreshCatalog();}
     $('#service-notice').hidden=!data.temporary;
     $('#service-notice').textContent='[!] Motor temporário: funciona enquanto o computador e o túnel estiverem ligados. Histórico desativado por padrão; persistência opcional no painel de lote.';
-  }catch(error){$('#health-button').textContent='[!] motor desconectado';$('#platform-list').textContent='Lista indisponível até conectar o motor.';$('#service-notice').hidden=false;$('#service-notice').textContent=`[!] ${error instanceof Error?error.message:'Motor indisponível.'} O frontend está pronto; downloads precisam do serviço conectado.`;}
+  }catch(error){$('#health-button').textContent='[!] motor desconectado';$('#platform-list').textContent='Lista indisponível até conectar o motor.';$('#service-notice').hidden=false;$('#service-notice').textContent=`[!] ${error instanceof Error?error.message:'Motor indisponível.'} O frontend está pronto; downloads precisam do serviço conectado.`;}finally{healthInFlight=false;lastHealth=Date.now();}
 }
 $('#health-button').addEventListener('click',()=>void health());$('#reconnect').addEventListener('click',()=>void health());void health();
+window.addEventListener('online',()=>void health());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastHealth>30000)void health();});
 $('#paste').addEventListener('click',async()=>{try{input.value=(await navigator.clipboard.readText()).trim();input.dispatchEvent(new Event('input'));input.focus();}catch{state('ÁREA DE TRANSFERÊNCIA','O navegador não permitiu colar. Use Ctrl+V ou toque e segure no campo.');input.focus();}});
 $('#clear').addEventListener('click',()=>{input.value='';input.dispatchEvent(new Event('input'));input.focus();});
 input.addEventListener('input',()=>{$('#url-error').hidden=true;input.removeAttribute('aria-invalid');if(!busy)resetResults();});

@@ -3,6 +3,8 @@ import {fork,type ChildProcess} from 'node:child_process';
 import {readFile,writeFile,mkdir,readdir,realpath,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {stat} from 'node:fs/promises';
+import {SavedDestinations} from './destinations.ts';
 import {randomBytes} from 'node:crypto';
 import {prepareEngines,enginesReady} from './engines.ts';
 import {safeName,uniqueDestination,writeDownload} from './files.ts';
@@ -13,7 +15,7 @@ const data=join(app.getPath('appData'),'Batatubo');app.setPath('userData',data);
 const index=join(__dirname,'../dist-desktop/index.html'),setup=join(__dirname,'../desktop/setup.html');
 let window:BrowserWindow,backend:ChildProcess|undefined,apiBase='',starting:Promise<void>|undefined,quitting=false,closing=false;
 const token=randomBytes(32).toString('hex'),abort=new AbortController(),transfers=new Map<string,AbortController>();
-const writes=new Set<Promise<unknown>>();
+const writes=new Set<Promise<unknown>>(),savedDestinations=new SavedDestinations();
 const engineFolder=join(data,'engines'),work=join(data,'work');let folder=app.getPath('downloads');
 function trusted(event:{senderFrame:Electron.WebFrameMain|null;sender:Electron.WebContents}){const url=event.senderFrame?.url.split('#')[0];if(!window||event.sender!==window.webContents||event.senderFrame!==window.webContents.mainFrame||![pathToFileURL(index).href,pathToFileURL(setup).href].includes(url||''))throw Error('untrusted IPC');}
 function uiOnly(event:{senderFrame:Electron.WebFrameMain|null;sender:Electron.WebContents}){trusted(event);if(event.senderFrame?.url.split('#')[0]!==pathToFileURL(index).href)throw Error('UI unavailable');}
@@ -33,17 +35,18 @@ ipcMain.handle('prepare-engine',event=>{trusted(event);return start();});
 handle('folder',()=>folder);
 handle('choose-folder',async()=>{const result=await dialog.showOpenDialog(window,{defaultPath:folder,properties:['openDirectory','createDirectory']});if(!result.canceled&&result.filePaths[0]){const chosen=await realpath(result.filePaths[0]);if(chosen===data||chosen.startsWith(data+'\\'))throw Error('Use uma pasta fora dos dados internos do aplicativo.');folder=chosen;await writeFile(join(data,'preferences.json'),JSON.stringify({folder}));}return folder;});
 handle('open-folder',async()=>{const error=await shell.openPath(folder);if(error)throw Error('Folder unavailable');});
+handle('show-saved',async(_event,id)=>{const file=savedDestinations.find(id);if(!file||!(await stat(file)).isFile())throw Error('Arquivo não encontrado. Ele pode ter sido movido.');shell.showItemInFolder(file);});
 handle('list-folder',async()=>(await readdir(folder)).sort().slice(0,100));
 handle('cancel-transfer',(_event,id)=>{if(typeof id==='string')transfers.get(id)?.abort();});
 handle('export-report',async(_event,text)=>{if(typeof text!=='string'||text.length>65536||/https?:\/\/|file:|[A-Z]:\\/i.test(text))throw Error('Unsafe report');const result=await dialog.showSaveDialog(window,{defaultPath:join(folder,'batatubo-diagnostico.json'),filters:[{name:'JSON',extensions:['json']}]});if(result.filePath)await writeFile(result.filePath,text,{flag:'w'});});
 handle('save',async(_event,id,capability)=>{
   if(typeof id!=='string'||!/^[-\w]{36}$/.test(id)||typeof capability!=='string'||!/^[a-f0-9]{64}$/.test(capability))throw Error('Invalid file capability');if(transfers.has(id))return;if(transfers.size>=2)throw Error('Two transfers already active');
-  const controller=new AbortController();transfers.set(id,controller);let received=0,filename='arquivo',total:number|undefined;const started=Date.now();let last=0;let idle:ReturnType<typeof setTimeout>|undefined;
+  const destinationFolder=folder;const controller=new AbortController();transfers.set(id,controller);let received=0,filename='arquivo',total:number|undefined;const started=Date.now();let last=0;let idle:ReturnType<typeof setTimeout>|undefined;
   const notify=(state:string,message?:string)=>send('transfer',{id,state,filename,bytes:received,total,speed:received/Math.max(1,(Date.now()-started)/1000),message});
   try{const url=`${apiBase}/api/jobs/${id}/file?token=${capability}`;const head=await fetch(url,{method:'HEAD',headers:{'X-Batatubo-Desktop':token},signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});if(!head.ok)throw Error('Arquivo não disponível. Prepare outra cópia.');
     const disposition=head.headers.get('content-disposition')||'';filename=safeName(decodeURIComponent(disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]||disposition.match(/filename="([^"]+)"/)?.[1]||'batatubo-arquivo'));total=Number(head.headers.get('content-length'))||undefined;
-    const destination=await uniqueDestination(folder,filename);if(destination.renamed){const result=await dialog.showMessageBox(window,{type:'question',title:'Arquivo existente',message:`${filename} já existe.`,detail:`Salvar uma nova cópia como ${safeName(destination.file)}? O arquivo existente será preservado.`,buttons:['Salvar nova cópia','Cancelar'],defaultId:0,cancelId:1});if(result.response===1){controller.abort();throw Error('cancelled');}}
-    filename=safeName(destination.file);const renew=()=>{clearTimeout(idle);idle=setTimeout(()=>controller.abort(),300000);};renew();const response=await fetch(url,{headers:{'X-Batatubo-Desktop':token},signal:controller.signal});notify('writing');await writeDownload(response,destination.file,controller.signal,count=>{renew();received=count;if(Date.now()-last>150){last=Date.now();notify('writing');}});notify('saved');
+    const destination=await uniqueDestination(destinationFolder,filename);if(destination.renamed){const result=await dialog.showMessageBox(window,{type:'question',title:'Arquivo existente',message:`${filename} já existe.`,detail:`Salvar uma nova cópia como ${safeName(destination.file)}? O arquivo existente será preservado.`,buttons:['Salvar nova cópia','Cancelar'],defaultId:0,cancelId:1});if(result.response===1){controller.abort();throw Error('cancelled');}}
+    filename=safeName(destination.file);const renew=()=>{clearTimeout(idle);idle=setTimeout(()=>controller.abort(),300000);};renew();const response=await fetch(url,{headers:{'X-Batatubo-Desktop':token},signal:controller.signal});notify('writing');await writeDownload(response,destination.file,controller.signal,count=>{renew();received=count;if(Date.now()-last>150){last=Date.now();notify('writing');}});savedDestinations.remember(id,destination.file);notify('saved');
   }catch(error){notify(controller.signal.aborted?'cancelled':'error',publicError(String(error)));}finally{clearTimeout(idle);transfers.delete(id);}
 });
 if(!app.requestSingleInstanceLock())app.quit();else{

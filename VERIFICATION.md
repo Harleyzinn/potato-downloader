@@ -66,3 +66,10 @@ A evolução mantém o mecanismo yt-dlp, a ausência de cotas de bytes e as veri
 - Não existe Windows Sandbox disponível nesta máquina. Testes locais usam o Windows atual, com ferramentas de desenvolvimento presentes; não confirmam execução em uma máquina limpa, sob outro antivírus, em ARM64 ou em todas as versões do Windows. O pacote é uma pré-release sem assinatura digital.
 
 Instalação de teste concluída pelo assistente NSIS no Windows atual em `.runtime/instalação teste/Batatubo`, com espaço e acento. A tela final confirmou a instalação. Desinstalação executada pelo desinstalador gerado, modo silencioso, terminou com código 0; o executável instalado foi removido e o vídeo de 788.493 bytes em Downloads permaneceu intacto. A opção de remover preferências não foi selecionada. Isso não comprova instalação em máquina limpa. Os artefatos distribuídos são recompilados a partir do código final no runner Windows, com checks e SHA-256 próprios.
+
+
+## Batatubo 4.0.0-beta.2 / 27-10-2026
+
+Melhorias da fila, destino nativo e numeração ZIP. Novos testes verificam busca sem acentos, filtros sem reordenar a fila, separação de processamento/gravação, destino por identificador e limite em memória, e numeração do ZIP sem duplicar prefixos gerados. Os testes manuais do instalador da beta 1 acima são históricos; a beta 2 é recompilada pelo CI Windows e distribuída como pré-release sem assinatura. Não foi validada em máquina limpa.
+
+Checks locais da beta 2: 27 testes aprovados, tipos, lint, build web e preparação do desktop. Integração real com as duas mídias públicas W3Schools usadas anteriormente: cancelamento de um trabalho aceito, novo preparo dos dois vídeos numerados, ZIP de 1.107.296 bytes, CRC válido, nomes `001-mov_bbb.mp4` e `002-movie.mp4` (sem prefixos repetidos) e originais marcados como arquivados. O endpoint de saúde segue informando ausência de cota de bytes. Não é um novo teste de mídia acima de 4 GiB ou instalação em máquina limpa.

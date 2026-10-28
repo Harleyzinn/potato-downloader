@@ -5,6 +5,13 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {safeName,inside,uniqueDestination,writeDownload} from '../desktop/files.ts';
 import {palettes,normalizeAppearance} from '../src/appearance.ts';
+import {SavedDestinations} from '../desktop/destinations.ts';
+test('saved destinations are bound to completed transfer IDs, bounded and never supplied by the renderer',()=>{
+  const files=new SavedDestinations(2);files.remember('first','C:/Destino antigo/ação.mp4');
+  assert.equal(files.find('first'),'C:/Destino antigo/ação.mp4');assert.equal(files.find('../escape'),undefined);
+  files.remember('second','D:/Outra pasta/video.mp4');files.remember('third','D:/Outra pasta/audio.mp3');
+  assert.equal(files.find('first'),undefined);assert.equal(files.find('second'),'D:/Outra pasta/video.mp4');
+});
 function luminance(hex:string){const colors=hex.slice(1).match(/../g)!.map(c=>{const n=parseInt(c,16)/255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4;});return colors[0]*.2126+colors[1]*.7152+colors[2]*.0722;}
 test('all theme text, accents, muted text and errors meet AA contrast on both surfaces',()=>{for(const p of Object.values(palettes))for(const foreground of [p.text,p.accent,p.muted,p.dim,p.danger,p.success])for(const background of [p.bg,p.panel]){const a=luminance(foreground),b=luminance(background);assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,`${p.name}: ${foreground} on ${background}`);}});
 test('appearance preferences accept only supported values and preserve deterministic defaults',()=>{assert.deepEqual(normalizeAppearance({theme:'__proto__',font:99,density:'bad'} as never),{theme:'classic',font:13,density:'comfortable',motion:false,crt:false});assert.equal(normalizeAppearance({theme:'system',motion:true,font:17}).theme,'system');});

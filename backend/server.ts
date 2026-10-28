@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {archiveEntryName} from './archive-name.ts';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {ZipArchive} from 'archiver';
 import {discovery} from './discovery.ts';
@@ -161,7 +162,7 @@ const server=http.createServer(async(req,res)=>{
         output.on('close',()=>{controller.signal.removeEventListener('abort',abort);done();});output.on('error',fail);archive.on('error',fail);archive.on('warning',fail);
         archive.on('progress',p=>{if(p.entries.processed>0)watch.touch();task.job.message=`${p.entries.processed}/${ids.length} arquivos empacotados`;});
         archive.pipe(output);
-        sources.forEach((t,i)=>archive.file(t!.file!,{name:`${String(i+1).padStart(3,'0')}-${t!.job.filename}`}));
+        sources.forEach((t,i)=>archive.file(t!.file!,{name:archiveEntryName(t!.job.filename||'midia',i+1,t!.input?.numbering?t!.input.index:undefined)}));
         void archive.finalize().catch(fail);
       }).then(async()=>{if(controller.signal.aborted)throw new Error('cancelled');const info=await stat(file);task.file=file;task.expiresAt=Date.now()+config.ttl;task.job={id,state:'ready',filename:'batatubo-lote.zip',size:info.size,fileToken:task.fileToken,expiresAt:task.expiresAt};})
         .catch(async(error)=>{archive.abort();output.destroy();task.job={id,state:controller.signal.aborted&&controller.signal.reason!=='stalled'?'cancelled':'error',message:publicError(String(controller.signal.reason||error))};task.expiresAt=Date.now()+config.ttl;await removeTemporary(dir);})

@@ -3,12 +3,12 @@
 **Sua mídia passa pelo tubo. A batata fica.** Batatubo junta batata com o tubo por onde a mídia passa. É a evolução do Potato Dumper; o repositório, o endereço do Pages e as chaves de preferências anteriores foram preservados.
 
 - [Abrir versão web](https://harleyzinn.github.io/potato-downloader/)
-- [Windows x64 / 4.0.0-beta.1 / instalador e SHA-256](https://github.com/Harleyzinn/potato-downloader/releases/tag/v4.0.0-beta.1)
+- [Windows x64 / 4.0.0-beta.2 / instalador e SHA-256](https://github.com/Harleyzinn/potato-downloader/releases/tag/v4.0.0-beta.2)
 - [Código e histórico](https://github.com/Harleyzinn/potato-downloader)
 
 ## Instalar e usar no Windows
 
-1. Abra a release acima e baixe `Batatubo-4.0.0-beta.1-Windows-x64-Setup.exe`. Confira o SHA-256 com `SHA256SUMS.txt` da mesma release.
+1. Abra a release acima e baixe `Batatubo-4.0.0-beta.2-Windows-x64-Setup.exe`. Confira o SHA-256 com `SHA256SUMS.txt` da mesma release.
 2. Execute o instalador assistido por usuário. Escolha a pasta, reveja o resumo e marque os atalhos que desejar. Nenhum início automático é criado. O desinstalador aparece nas configurações de aplicativos do Windows.
 3. Abra o aplicativo. Na primeira abertura, clique em **Preparar motor local**. Ele obtém yt-dlp e FFmpeg diretamente dos distribuidores de origem por HTTPS, confere os hashes fixados e mostra bytes reais. Essa etapa precisa de conexão e espaço, mas não exige terminal, Node ou Python instalados pelo usuário.
 4. Em Ajustes, escolha a pasta padrão. O aplicativo lembra essa preferência, lista até 100 nomes existentes sob demanda e oferece abrir a pasta. Conflitos geram uma confirmação para salvar outra cópia; não há sobrescrita silenciosa.
@@ -17,6 +17,15 @@
 **Pré-release sem assinatura digital**, para Windows 10 ou posterior, x64. Não é necessário desativar proteções do Windows. Compilação e testes automatizados não equivalem a validação em máquina limpa; consulte [VERIFICATION.md](VERIFICATION.md) para as etapas efetivamente executadas. O instalador contém Electron e o aplicativo; os executáveis de extração/conversão são gerenciados na primeira abertura, sem redistribuição deles no instalador. Versões, hashes e licenças: [THIRD_PARTY.md](THIRD_PARTY.md) e [desktop/engines.json](desktop/engines.json).
 
 Atualizações preservam o perfil `%APPDATA%/Batatubo` e os arquivos baixados. A remoção das preferências é uma opção desmarcada do desinstalador. Downloads ficam fora dos dados internos e não são removidos. Os motores obtidos anteriormente ficam no perfil para uma eventual reinstalação. Não há atualizador silencioso: Sobre permite consultar releases do GitHub, sem baixar ou instalar uma nova versão.
+
+## Novidades da beta 2
+
+- Busca por título na fila, ignorando acentos, e filtros por andamento, arquivos disponíveis, enviados/gravados, falhas e cancelamentos. Eles afetam só a visualização: a ordem e a execução permanecem as mesmas.
+- Contadores separados de preparados, disponíveis, falhas e gravações no desktop. O resultado nativo aparece também na fila e no estado do ZIP, sem confundir envio pelo servidor com gravação local.
+- Nova tentativa por item, inclusive após cancelamento ou falha de gravação, preparando outra cópia sem sobrescrever o arquivo existente.
+- Mostrar arquivo na pasta usa o destino daquela transferência, mesmo após trocar a pasta padrão. Essa associação é temporária, limitada a 100 arquivos e não é persistida como histórico.
+- ZIP aplica a numeração uma vez, preservando números que fazem parte do título original.
+- O estado do motor é revisto ao recuperar a conexão ou retornar à página; verificações simultâneas são agrupadas.
 
 ## Temas e terminal ASCII
 

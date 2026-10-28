@@ -1,11 +1,9 @@
-Batatubo / Tubo Edition / Windows x64 / prévia
+Batatubo 4.0.0-beta.2 / Windows x64 / prévia
 
-Nova identidade, cinco temas ASCII, fonte e densidade configuráveis, diagnóstico sanitizado e aplicativo Electron com motor local. O instalador NSIS é assistido, por usuário, com pasta, opções de atalhos, resumo, progresso nativo e desinstalador. Não possui assinatura digital.
+Busca sem acentos e filtros na fila; contadores separados de preparação, disponibilidade e gravação; nova tentativa individual; ZIP sem repetição da numeração gerada; confirmação local também na fila e no ZIP. Mostrar arquivo na pasta agora usa o destino original da transferência, mesmo após alterar a pasta padrão. O motor é revisto ao recuperar a conexão ou retornar à página.
 
-O motor é preparado na primeira abertura: yt-dlp e FFmpeg são obtidos diretamente de seus projetos por HTTPS, com versões e SHA-256 fixados. Não precisa instalar Node, Python ou abrir terminal. Internet e espaço em disco são necessários. Consulte THIRD_PARTY.md e engines.json para origens e licenças. Nenhuma atualização é instalada silenciosamente.
+Mantém os cinco temas ASCII, preferências existentes, downloads individuais/playlists/lotes, streaming, ZIP64 e ausência de limite de tamanho imposto pela aplicação. Disco, rede, proxy, sistema de arquivos e origem ainda podem impor restrições.
 
-Confira o SHA-256 do instalador com SHA256SUMS.txt. Mídias continuam sujeitas à disponibilidade e permissão da origem, disco e rede; não há cota de tamanho imposta pela aplicação. Não grava transmissões ao vivo nem remove DRM ou autenticação.
+Instalador assistido por usuário, pasta e atalhos opcionais, resumo e desinstalador. SHA-256 em SHA256SUMS.txt. Pré-release sem assinatura digital. A primeira abertura obtém yt-dlp e FFmpeg dos projetos de origem e valida os hashes fixados; não exige terminal, Node ou Python instalados. Nenhuma atualização é instalada silenciosamente. Consulte THIRD_PARTY.md e engines.json.
 
-Esta é uma PRERELEASE: compilação e checks automatizados não equivalem a instalação validada em máquina limpa. Veja README.md e VERIFICATION.md para a lista exata de verificações manuais realizadas e pendentes. Sem serviço permanente ou inicialização automática; fechar cancela tarefas locais ativas após aviso. Downloads concluídos são preservados na desinstalação. Preferências só são removidas pela opção explícita do desinstalador.
-
-Validação manual local: instalação assistida em pasta com espaço e acento, telas de resumo/atalhos/conclusão, abertura do aplicativo e motor local, download real de 788.493 bytes e conflito sem sobrescrita. Desinstalador terminou com código 0 e preservou o download. Os testes não ocorreram em máquina limpa. O pacote desta release é recompilado e verificado pelo workflow Windows.
+Os checks e o build desta versão são executados no runner Windows. Os testes de instalação e desinstalação da beta 1 estão documentados como históricos em VERIFICATION.md; eles não equivalem a um teste desta versão em máquina limpa. Os downloads concluídos são preservados na desinstalação e a remoção de preferências continua opcional.
